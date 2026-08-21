@@ -44,6 +44,11 @@ export default function Home() {
             やさしい言葉で説明します
           </p>
           <p className="mt-1 text-xs text-zinc-500">powered by AI (Gemini)</p>
+          <p className="mt-3 text-xs text-zinc-500">
+            議案は手作業で掲載しており、自動更新はしていません。
+            <br />
+            最新の審議状況は各議会の公式サイトをご確認ください。
+          </p>
         </div>
       </section>
 

@@ -60,7 +60,7 @@ export default function RootLayout({
               >
                 gikai.team-mir.ai
               </a>
-              )の発想を参考にした、非公式のハッカソン制作物です。
+              )の発想を参考にした、非公式の個人制作サイトです。
             </footer>
           </DetailLevelProvider>
         </FuriganaProvider>

@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# 雛形はAPIキーを含まないのでコミットする(READMEのセットアップ手順で使う)
+!.env.local.example
 
 # vercel
 .vercel

@@ -92,7 +92,7 @@ export default function ChatWidget({
             className={
               m.role === "user"
                 ? "ml-auto max-w-[85%] rounded-lg bg-amber-500 px-3 py-2 text-sm text-white"
-                : "mr-auto max-w-[85%] rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-900"
+                : "mr-auto max-w-[85%] whitespace-pre-line rounded-lg bg-zinc-100 px-3 py-2 text-sm leading-relaxed text-zinc-900"
             }
           >
             {m.content}

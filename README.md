@@ -38,27 +38,6 @@
 
 ![アーキテクチャ図](./docs/architecture.png)
 
-## セットアップ
-
-```bash
-npm install
-cp .env.local.example .env.local   # GOOGLE_GENERATIVE_AI_API_KEY を設定するとAIチャットが動く
-npm run dev                         # http://localhost:3000
-```
-
-Gemini APIキーは https://aistudio.google.com/apikey で無料発行できます。
-
-## ビルド・型チェック
-
-```bash
-npx tsc --noEmit
-npm run build
-```
-
-## 開発・デプロイ
-
-- 開発方針・データ追加手順・ふりがな生成の仕組みなどは [CONTRIBUTING.md](./CONTRIBUTING.md)
-- Vercelへのデプロイ手順は [DEPLOY.md](./DEPLOY.md)
 
 ## 今後の展望: 最新議案の自動取得
 

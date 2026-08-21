@@ -11,7 +11,7 @@ cp .env.local.example .env.local   # GOOGLE_GENERATIVE_AI_API_KEY を設定す�
 npm run dev                         # http://localhost:3000
 ```
 
-Gemini APIキーの取得方法・本番デプロイ手順は [DEPLOY.md](./DEPLOY.md) を参照。
+Gemini APIキーは https://aistudio.google.com/apikey で無料発行できる。
 
 ## プロジェクト構造
 
@@ -127,5 +127,3 @@ npx tsc --noEmit
 npm run lint
 npm run build
 ```
-
-デプロイ手順は [DEPLOY.md](./DEPLOY.md) を参照。

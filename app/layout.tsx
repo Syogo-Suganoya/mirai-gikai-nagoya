@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { FuriganaProvider } from "./furigana-context";
@@ -17,9 +17,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "みらい議会 愛知・名古屋",
+  title: "みらい議会＠愛知・名古屋",
   description: "愛知県議会・名古屋市会の議案をわかりやすく伝えるサイト",
 };
+
+// 本家みらい議会のブランドカラーと混同されないよう、サイト独自のamber系を指定する
+export const viewport: Viewport = {
+  themeColor: "#f59e0b",
+};
+
+// ソースコード公開先(みらい議会 Fork ガイドライン 6. に対応)
+const SOURCE_REPO_URL = "https://github.com/Syogo-Suganoya/mirai-gikai-nagoya";
 
 export default function RootLayout({
   children,
@@ -49,7 +57,7 @@ export default function RootLayout({
               </div>
             </header>
             <main className="flex-1">{children}</main>
-            <footer className="border-t border-amber-100 bg-white py-6 text-center text-xs text-zinc-500">
+            <footer className="border-t border-amber-100 bg-white py-6 text-center text-xs leading-relaxed text-zinc-500">
               これは政党チームみらいが運営しているものではありません。<br />
               「みらい議会」(
               <a
@@ -61,6 +69,24 @@ export default function RootLayout({
                 gikai.team-mir.ai
               </a>
               )の発想を参考にした、非公式の個人制作サイトです。
+              <br />
+              <a
+                href={SOURCE_REPO_URL}
+                className="underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                このサイトのソースコード
+              </a>
+              {" ・ "}
+              <a
+                href="https://github.com/team-mirai/mirai-gikai"
+                className="underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                本家みらい議会のリポジトリ
+              </a>
             </footer>
           </DetailLevelProvider>
         </FuriganaProvider>

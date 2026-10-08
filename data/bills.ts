@@ -13,17 +13,21 @@ export type FuriganaSegment = {
   reading?: string;
 };
 
-// サムネイル方式: 名古屋市会(illustration=自作SVGイラスト) / 愛知県議会(photo=キーワード連動の外部写真)
+// サムネイル方式: illustration=自作SVGイラスト / photo=キーワード連動の外部写真(loremflickr)
+// photo は外部サービス側の都合(ボット判定など)で読み込めないことがあるため、
+// 読み込みに失敗したときに表示するイラストを fallback に必ず指定する。
 export type BillIllustration =
   | "budget"
   | "childcare"
   | "education"
   | "community"
-  | "organization";
+  | "organization"
+  | "industry"
+  | "labor";
 
 export type BillThumbnail =
   | { type: "illustration"; illustration: BillIllustration }
-  | { type: "photo"; keyword: string };
+  | { type: "photo"; keyword: string; fallback: BillIllustration };
 
 // みらい議会の詳細画面を参考にした追加セクション。
 export type BillKeyPoint = { title: string; body: string };
@@ -209,7 +213,7 @@ export const bills: Bill[] = [
       { text: "について" },
     ],
     tags: ["新設条例", "子育て"],
-    thumbnail: { type: "photo", keyword: "baby,nursery,japan" },
+    thumbnail: { type: "photo", keyword: "baby,nursery,japan", fallback: "childcare" },
     status: "enacted",
     submittedDate: "2026-02-18",
     decidedDate: "2026-03-19",
@@ -269,7 +273,7 @@ export const bills: Bill[] = [
       { text: "について" },
     ],
     tags: ["条例改正", "教育🏫"],
-    thumbnail: { type: "photo", keyword: "library,books,japan" },
+    thumbnail: { type: "photo", keyword: "library,books,japan", fallback: "education" },
     status: "enacted",
     submittedDate: "2026-02-18",
     decidedDate: "2026-03-19",
@@ -324,7 +328,7 @@ export const bills: Bill[] = [
       { text: "について" },
     ],
     tags: ["条例改正", "男女共同参画"],
-    thumbnail: { type: "photo", keyword: "community,center,japan" },
+    thumbnail: { type: "photo", keyword: "community,center,japan", fallback: "community" },
     status: "enacted",
     submittedDate: "2026-02-18",
     decidedDate: "2026-03-19",
@@ -379,7 +383,7 @@ export const bills: Bill[] = [
       { text: "について" },
     ],
     tags: ["新設条例", "産業振興💡"],
-    thumbnail: { type: "photo", keyword: "startup,technology,office" },
+    thumbnail: { type: "photo", keyword: "startup,technology,office", fallback: "industry" },
     status: "enacted",
     submittedDate: "2025-06-01",
     decidedDate: "2025-07-08",
@@ -434,7 +438,7 @@ export const bills: Bill[] = [
       { text: "について" },
     ],
     tags: ["新設条例", "労働"],
-    thumbnail: { type: "photo", keyword: "customer,shop,japan" },
+    thumbnail: { type: "photo", keyword: "customer,shop,japan", fallback: "labor" },
     status: "enacted",
     submittedDate: "2025-06-01",
     decidedDate: "2025-07-08",
@@ -498,7 +502,7 @@ export const bills: Bill[] = [
       { text: ")" },
     ],
     tags: ["補正予算💰", "財政"],
-    thumbnail: { type: "photo", keyword: "finance,office,japan" },
+    thumbnail: { type: "photo", keyword: "finance,office,japan", fallback: "budget" },
     status: "enacted",
     submittedDate: "2025-06-01",
     decidedDate: "2025-07-08",
@@ -611,7 +615,7 @@ export const bills: Bill[] = [
       { text: ")" },
     ],
     tags: ["補正予算💰", "財政"],
-    thumbnail: { type: "photo", keyword: "yen,money,japan" },
+    thumbnail: { type: "photo", keyword: "yen,money,japan", fallback: "budget" },
     status: "enacted",
     submittedDate: "2025-06-01",
     decidedDate: "2025-07-08",

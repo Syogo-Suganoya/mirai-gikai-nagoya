@@ -4,6 +4,9 @@ import ChildcareIllustration from "./thumbnails/childcare-illustration";
 import EducationIllustration from "./thumbnails/education-illustration";
 import CommunityIllustration from "./thumbnails/community-illustration";
 import OrganizationIllustration from "./thumbnails/organization-illustration";
+import IndustryIllustration from "./thumbnails/industry-illustration";
+import LaborIllustration from "./thumbnails/labor-illustration";
+import PhotoWithFallback from "./photo-with-fallback";
 
 const illustrations: Record<
   BillIllustration,
@@ -14,6 +17,8 @@ const illustrations: Record<
   education: EducationIllustration,
   community: CommunityIllustration,
   organization: OrganizationIllustration,
+  industry: IndustryIllustration,
+  labor: LaborIllustration,
 };
 
 // loremflickr はキーワードだけを指定するとリロードのたびに別の写真が返るため、
@@ -41,12 +46,15 @@ export default function BillThumbnailView({
           return <Illustration className="h-full w-full" />;
         })()
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={`https://loremflickr.com/640/256/${thumbnail.keyword}?lock=${lockFromKeyword(thumbnail.keyword)}`}
-          alt=""
-          className="h-full w-full object-cover"
-        />
+        (() => {
+          const Fallback = illustrations[thumbnail.fallback];
+          return (
+            <PhotoWithFallback
+              src={`https://loremflickr.com/640/256/${thumbnail.keyword}?lock=${lockFromKeyword(thumbnail.keyword)}`}
+              fallback={<Fallback className="h-full w-full" />}
+            />
+          );
+        })()
       )}
     </div>
   );

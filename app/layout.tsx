@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { FuriganaProvider } from "./furigana-context";
@@ -47,9 +48,9 @@ export default function RootLayout({
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-lg">
                   🏯
                 </span>
-                <a href="/" className="text-lg font-bold tracking-tight">
+                <Link href="/" className="text-lg font-bold tracking-tight">
                   みらい議会<span className="text-amber-600">＠愛知・名古屋</span>
-                </a>
+                </Link>
                 <div className="ml-auto flex items-center gap-2">
                   <DetailLevelToggle />
                   <FuriganaToggle />

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "generate:furigana": "tsx scripts/generate-explanation-furigana.ts"
+    "generate:furigana": "tsx scripts/generate-explanation-furigana.ts",
+    "ingest:agendas": "tsx scripts/ingest-agendas.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.18",

@@ -120,6 +120,16 @@ export default async function BillDetailPage({
         >
           {council.name} 公式サイトの議案一覧
         </a>
+        {" ・ 審議の詳しい内容は "}
+        <a
+          href={council.minutesSearchUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-amber-700"
+        >
+          {council.name}の会議録検索
+        </a>
+        {" で議案名を入力すると読めます"}
       </p>
     </div>
   );

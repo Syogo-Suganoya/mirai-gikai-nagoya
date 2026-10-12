@@ -3,7 +3,7 @@ import { requireAdminPage } from "@/lib/auth/admin";
 import { councils, getCouncil } from "@/data/councils";
 import { listBills } from "@/lib/bills/repository";
 import { statusPillClass } from "@/lib/bills/status-style";
-import { billStatusLabels, BILL_STATUSES } from "@/lib/bills/types";
+import { billStatusLabels, BILL_STATUSES, type BillRecord } from "@/lib/bills/types";
 import BillRowActions from "./bill-row-actions";
 
 const SORTS = {
@@ -14,18 +14,34 @@ const SORTS = {
 } as const;
 type SortKey = keyof typeof SORTS;
 
+// 解説(かんたん・くわしい)も4つのセクションも空で、議案名などの基本情報しかない議案
+// (「議案一覧から作成」や CSV で取り込んだ直後など)
+function isTitleOnly(bill: BillRecord): boolean {
+  return (
+    !bill.summaryEasy.trim() &&
+    !bill.summaryDetailed.trim() &&
+    bill.keyPoints.length === 0 &&
+    bill.reasons.length === 0 &&
+    bill.debatePoints.length === 0 &&
+    bill.affectedGroups.length === 0
+  );
+}
+
 export default async function AdminBillsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ council?: string; sort?: string }>;
+  searchParams: Promise<{ council?: string; sort?: string; content?: string }>;
 }) {
   await requireAdminPage();
   const params = await searchParams;
   const council = councils.find((c) => c.key === params.council)?.key;
   const sort: SortKey = params.sort && params.sort in SORTS ? (params.sort as SortKey) : "updated";
+  const titleOnly = params.content === "title_only";
 
-  const bills = (await listBills())
-    .filter((b) => !council || b.council === council)
+  const councilBills = (await listBills()).filter((b) => !council || b.council === council);
+  const titleOnlyCount = councilBills.filter(isTitleOnly).length;
+  const bills = councilBills
+    .filter((b) => !titleOnly || isTitleOnly(b))
     .sort((a, b) => {
       switch (sort) {
         case "status":
@@ -39,12 +55,14 @@ export default async function AdminBillsPage({
       }
     });
 
-  const query = (next: { council?: string; sort?: string }) => {
+  const query = (next: { council?: string; sort?: string; titleOnly?: boolean }) => {
     const p = new URLSearchParams();
     const c = "council" in next ? next.council : council;
     const s = "sort" in next ? next.sort : sort;
+    const t = "titleOnly" in next ? next.titleOnly : titleOnly;
     if (c) p.set("council", c);
     if (s && s !== "updated") p.set("sort", s);
+    if (t) p.set("content", "title_only");
     const q = p.toString();
     return q ? `/admin?${q}` : "/admin";
   };
@@ -86,6 +104,13 @@ export default async function AdminBillsPage({
             {c.name}
           </Link>
         ))}
+        <Link
+          href={query({ titleOnly: !titleOnly })}
+          title="解説もセクションも入っていない議案だけを表示します"
+          className={`rounded-full px-3 py-1 ${titleOnly ? "bg-orange-500 text-white" : "bg-white text-orange-700 ring-1 ring-orange-200"}`}
+        >
+          {titleOnly ? "✓ " : ""}件名のみ {titleOnlyCount}件
+        </Link>
         <span className="ml-auto text-xs text-zinc-500">並べ替え:</span>
         {(Object.keys(SORTS) as SortKey[]).map((key) => (
           <Link
@@ -100,7 +125,9 @@ export default async function AdminBillsPage({
 
       {bills.length === 0 ? (
         <p className="mt-6 rounded-xl border border-dashed border-zinc-300 bg-white p-8 text-center text-sm text-zinc-500">
-          議案がありません。「新規作成」か「議案一覧から作成」で追加してください。
+          {titleOnly
+            ? "件名だけの議案はありません。"
+            : "議案がありません。「新規作成」か「議案一覧から作成」で追加してください。"}
         </p>
       ) : (
         <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-200 bg-white">
@@ -123,7 +150,17 @@ export default async function AdminBillsPage({
                     <Link href={`/admin/bills/${bill.id}/edit`} className="font-medium hover:text-amber-700">
                       {bill.name}
                     </Link>
-                    <p className="mt-0.5 font-mono text-xs text-zinc-400">{bill.slug}</p>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="font-mono text-zinc-400">{bill.slug}</span>
+                      {isTitleOnly(bill) && (
+                        <span
+                          title="解説もセクションも入っていません"
+                          className="rounded bg-orange-100 px-1.5 py-0.5 font-medium text-orange-800"
+                        >
+                          件名のみ
+                        </span>
+                      )}
+                    </p>
                   </td>
                   <td className="px-3 py-3 text-xs text-zinc-600">
                     {getCouncil(bill.council).name}

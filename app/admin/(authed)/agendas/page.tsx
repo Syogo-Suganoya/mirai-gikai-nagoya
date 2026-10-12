@@ -26,6 +26,7 @@ export default async function AdminAgendasPage() {
       <p className="mt-1 text-sm text-zinc-500">
         取得済みの議案一覧(直近1年・{rows.length}件、データ更新日 {agendasGeneratedAt})から選ぶと、
         議案名・番号・委員会・議決結果を入力した状態で新規作成を始められます。
+        チェックを付けて「件名のみで登録」を押すと、選んだ議案をまとめて下書きとして登録します(解説は後から編集画面で入力)。
       </p>
       <AgendaPicker rows={rows} />
     </div>

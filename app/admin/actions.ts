@@ -12,6 +12,8 @@ import {
   type GeneratableSection,
   type GenerateSource,
 } from "@/lib/bills/generate";
+import { agendaItems, matchesAgendaItem } from "@/data/agendas";
+import { agendaToFormValues } from "@/lib/bills/from-agenda";
 import { toInput } from "@/lib/bills/input";
 import { BILLS_CACHE_TAG } from "@/lib/bills/queries";
 import * as repo from "@/lib/bills/repository";
@@ -121,6 +123,32 @@ export async function deleteBillAction(id: string): Promise<ActionResult> {
     await repo.deleteBill(id);
     refreshPublicSite();
     return { ok: true, data: undefined };
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+// ---- 議案一覧から件名のみで一括登録 ----
+
+const BULK_LIMIT = 500;
+
+// 選んだ議案一覧の行を、件名・番号・委員会・議決結果だけ入れた下書きとして登録する。
+// すでに登録済みの議案と、slug が重なる議案は飛ばす
+export async function registerAgendaItemsAction(
+  ids: string[],
+): Promise<ActionResult<{ created: number; skipped: number }>> {
+  try {
+    await requireAdmin();
+    if (ids.length === 0) return { ok: false, error: "議案を選んでください" };
+    if (ids.length > BULK_LIMIT) return { ok: false, error: `一度に登録できるのは${BULK_LIMIT}件までです` };
+    const wanted = new Set(ids);
+    const existing = await repo.listBills();
+    const items = agendaItems.filter(
+      (item) => wanted.has(item.id) && !existing.some((b) => matchesAgendaItem(b, item)),
+    );
+    const inputs = items.map((item) => formValuesToInput(billFormSchema.parse(agendaToFormValues(item))));
+    const created = await repo.createBillsBulk(inputs);
+    return { ok: true, data: { created: created.length, skipped: ids.length - created.length } };
   } catch (e) {
     return failure(e);
   }

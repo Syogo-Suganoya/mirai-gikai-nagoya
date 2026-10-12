@@ -17,6 +17,8 @@ const NUMBER_PREFIXES: [RegExp, string][] = [
   [/^専決/, "senketsu-"],
   [/^諮問/, "shimon-"],
   [/^認定/, "nintei-"],
+  [/^承認/, "shonin-"],
+  [/^同意/, "doi-"],
 ];
 
 // 例: 名古屋市会 令和8年8月定例会 市長提出 第138号 → nagoya-2026-08-138

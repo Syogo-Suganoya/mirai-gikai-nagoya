@@ -165,6 +165,25 @@ export async function createBill(input: BillInput): Promise<BillRecord> {
   });
 }
 
+// まとめて下書きとして作る(議案一覧からの一括登録用)。同じ slug がすでにある行は飛ばし、作った slug を返す
+export async function createBillsBulk(inputs: BillInput[]): Promise<string[]> {
+  if (inputs.length === 0) return [];
+  const sql = getSql();
+  const rows = await Promise.all(
+    inputs.map(async (input) => ({
+      ...toRow(input, await buildBillFurigana(input)),
+      publish_status: "draft",
+      is_review_completed: false,
+    })),
+  );
+  const created = await sql<{ slug: string }[]>`
+    insert into bills ${sql(rows)}
+    on conflict (slug) do nothing
+    returning slug
+  `;
+  return created.map((r) => r.slug);
+}
+
 export async function updateBill(id: string, input: BillInput): Promise<BillRecord> {
   const sql = getSql();
   const furigana = await buildBillFurigana(input);

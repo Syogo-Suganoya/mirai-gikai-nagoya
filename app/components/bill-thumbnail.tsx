@@ -31,16 +31,22 @@ function lockFromKeyword(keyword: string): number {
   return Math.abs(hash) % 100000;
 }
 
+// アップロードした画像(uploadedUrl)があればそれを、無ければ thumbnail のデフォルト表示(イラスト・写真)を出す
 export default function BillThumbnailView({
   thumbnail,
+  uploadedUrl,
 }: {
-  thumbnail?: BillThumbnail;
+  thumbnail?: BillThumbnail | null;
+  uploadedUrl?: string | null;
 }) {
-  if (!thumbnail) return null;
+  if (!uploadedUrl && !thumbnail) return null;
 
   return (
     <div className="aspect-[5/2] w-full overflow-hidden rounded-lg bg-zinc-100">
-      {thumbnail.type === "illustration" ? (
+      {uploadedUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={uploadedUrl} alt="" className="h-full w-full object-cover" />
+      ) : !thumbnail ? null : thumbnail.type === "illustration" ? (
         (() => {
           const Illustration = illustrations[thumbnail.illustration];
           return <Illustration className="h-full w-full" />;

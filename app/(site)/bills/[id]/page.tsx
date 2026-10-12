@@ -7,6 +7,7 @@ import { billStatusLabels } from "@/lib/bills/types";
 import ChatWidget from "@/app/components/chat-widget";
 import FuriganaText from "@/app/furigana-text";
 import BillThumbnailView from "@/app/components/bill-thumbnail";
+import { uploadedThumbnailUrl } from "@/lib/bills/card";
 import BillExplanation from "./bill-explanation";
 import StatusStepper from "./status-stepper";
 import BillDetailSections from "./bill-detail-sections";
@@ -46,9 +47,9 @@ export default async function BillDetailPage({
 
       {/* ヒーローカード */}
       <div className="mt-3 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-        {bill.thumbnail && (
+        {(uploadedThumbnailUrl(bill) || bill.thumbnail) && (
           <div className="mb-4">
-            <BillThumbnailView thumbnail={bill.thumbnail} />
+            <BillThumbnailView thumbnail={bill.thumbnail} uploadedUrl={uploadedThumbnailUrl(bill)} />
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2">

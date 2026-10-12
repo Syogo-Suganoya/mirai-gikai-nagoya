@@ -85,9 +85,13 @@ export function tokensToSegments(tokens: IpadicFeatures[]): FuriganaSegment[] {
     return [{ text: surface }];
   });
 
-  // 連続する「ふりがな無し」セグメントは結合して配列を読みやすくする
+  return mergePlain(raw);
+}
+
+// 連続する「ふりがな無し」セグメントは結合して配列を読みやすくする
+function mergePlain(segments: FuriganaSegment[]): FuriganaSegment[] {
   const merged: FuriganaSegment[] = [];
-  for (const seg of raw) {
+  for (const seg of segments) {
     const last = merged[merged.length - 1];
     if (!seg.reading && last && !last.reading) {
       last.text += seg.text;
@@ -96,6 +100,51 @@ export function tokensToSegments(tokens: IpadicFeatures[]): FuriganaSegment[] {
     }
   }
   return merged;
+}
+
+// 管理画面で入力した読みの修正を、自動で付けたふりがなに上書きする。
+// 文章中の text と一致する箇所を1つのセグメントにまとめて reading を振る(reading が空ならふりがな無し)。
+// 長い語から先に当てはめるので、「名古屋市会」と「市会」の両方があれば「名古屋市会」が優先される。
+// 自動のセグメントの途中で区切られた部分は、読みがずれるのでふりがな無しにする。
+export function applyFuriganaOverrides(
+  segments: FuriganaSegment[],
+  overrides: { text: string; reading: string }[],
+): FuriganaSegment[] {
+  const text = segments.map((s) => s.text).join("");
+  const spans: { start: number; end: number; reading: string }[] = [];
+  for (const o of [...overrides].sort((a, b) => b.text.length - a.text.length)) {
+    if (!o.text) continue;
+    for (let i = text.indexOf(o.text); i !== -1; i = text.indexOf(o.text, i + o.text.length)) {
+      const end = i + o.text.length;
+      if (spans.every((sp) => end <= sp.start || i >= sp.end)) spans.push({ start: i, end, reading: o.reading });
+    }
+  }
+  if (spans.length === 0) return segments;
+  spans.sort((a, b) => a.start - b.start);
+
+  // 各文字がどのセグメントに属するか
+  const bounds = segments.map((seg, k) => {
+    const start = segments.slice(0, k).reduce((n, s) => n + s.text.length, 0);
+    return { start, end: start + seg.text.length };
+  });
+  const result: FuriganaSegment[] = [];
+  let k = 0;
+  let next = 0;
+  for (let i = 0; i < text.length; ) {
+    const span = spans[next];
+    if (span && span.start === i) {
+      result.push(span.reading ? { text: text.slice(span.start, span.end), reading: span.reading } : { text: text.slice(span.start, span.end) });
+      i = span.end;
+      next++;
+      continue;
+    }
+    while (bounds[k].end <= i) k++;
+    const end = Math.min(bounds[k].end, span ? span.start : text.length);
+    const whole = i === bounds[k].start && end === bounds[k].end;
+    result.push(whole ? { ...segments[k] } : { text: text.slice(i, end) });
+    i = end;
+  }
+  return mergePlain(result);
 }
 
 export function buildTokenizer(): Promise<kuromoji.Tokenizer<IpadicFeatures>> {
@@ -113,11 +162,31 @@ export function buildTokenizer(): Promise<kuromoji.Tokenizer<IpadicFeatures>> {
   });
 }
 
-let tokenizerPromise: Promise<kuromoji.Tokenizer<IpadicFeatures>> | null = null;
+// Next.js のサーバー側で使う tokenizer(プロセス内で1回だけ読み込む)。
+// 開発モードの React は、サーバーでの描画中に await した値をデバッグ情報としてブラウザへ送る。
+// その際に tokenizer が持つ辞書の ArrayBuffer がストリームへ移されて空になり、以後の解析が
+// 「ConnectionCosts buffer overflow」で失敗する。そのため tokenizer そのものを値に持つ Promise を
+// await せず、読み込み完了だけを知らせる Promise<void> を待ってから変数の tokenizer を使う。
+let tokenizer: kuromoji.Tokenizer<IpadicFeatures> | null = null;
+let tokenizerReady: Promise<void> | null = null;
 
-// 辞書の読み込みは重いので、プロセス内で1回だけ行う
+function loadTokenizer(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    kuromoji
+      .builder({ dicPath: path.join(process.cwd(), "node_modules/kuromoji/dict") })
+      .build((err, built) => {
+        if (err) return reject(err);
+        tokenizer = built;
+        resolve();
+      });
+  });
+}
+
 export async function toFurigana(text: string): Promise<FuriganaSegment[]> {
-  tokenizerPromise ??= buildTokenizer();
-  const tokenizer = await tokenizerPromise;
-  return tokensToSegments(tokenizer.tokenize(text));
+  tokenizerReady ??= loadTokenizer().catch((e) => {
+    tokenizerReady = null; // 失敗したら次の呼び出しで読み込み直す
+    throw e;
+  });
+  await tokenizerReady;
+  return tokensToSegments(tokenizer!.tokenize(text));
 }

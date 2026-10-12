@@ -9,7 +9,7 @@ export default async function AdminsPage() {
     <div className="mx-auto max-w-3xl">
       <h1 className="text-xl font-bold">管理者</h1>
       <p className="mt-1 text-sm text-zinc-500">
-        管理画面に入れるアカウントです。Neon の SQL エディタから直接追加することもできます(_memo/DEPLOY.md 参照)。
+        管理画面に入れるアカウントです。
       </p>
       <AdminList admins={admins} myId={me.id} minPasswordLength={MIN_PASSWORD_LENGTH} />
     </div>

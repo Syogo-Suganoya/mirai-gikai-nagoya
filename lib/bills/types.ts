@@ -84,6 +84,9 @@ export type BillFurigana = {
   affectedGroups: { who: FuriganaSegment[]; effect: FuriganaSegment[] }[];
 };
 
+// ふりがなの手動修正。text(議案の文章中の語)を reading と読む。reading が空ならふりがなを付けない
+export type FuriganaOverride = { text: string; reading: string };
+
 // 管理画面で入力する項目(ふりがな・公開状態・タイムスタンプ以外)
 export type BillInput = {
   slug: string;
@@ -105,6 +108,7 @@ export type BillInput = {
   affectedGroups: BillAffectedGroup[];
   tags: string[];
   thumbnail: BillThumbnail | null;
+  furiganaOverrides: FuriganaOverride[];
   displayOrder: number;
 };
 
@@ -113,6 +117,8 @@ export type BillRecord = BillInput & {
   furigana: BillFurigana;
   publishStatus: PublishStatus;
   isReviewCompleted: boolean;
+  // アップロードしたサムネイル画像の更新時刻(ミリ秒)。画像が無ければ null
+  thumbnailVersion: string | null;
   createdAt: string;
   updatedAt: string;
 };

@@ -58,6 +58,18 @@ export const billFormSchema = z
     illustration: z.enum(BILL_ILLUSTRATIONS),
     photoKeyword: z.string().trim(),
     photoFallback: z.enum(BILL_ILLUSTRATIONS),
+    furiganaOverrides: z
+      .array(
+        z.object({
+          text: z.string().trim().min(1, "語を入力してください").max(30, "語は30文字以内にしてください"),
+          reading: z
+            .string()
+            .trim()
+            .max(60, "読みは60文字以内にしてください")
+            .regex(/^[ぁ-ゖー]*$/, "読みはひらがなで入力してください(空欄ならふりがなを付けません)"),
+        }),
+      )
+      .max(500),
     displayOrder: z.number().int().min(0).max(9999),
   })
   .refine((v) => !v.submittedDate || !v.decidedDate || v.decidedDate >= v.submittedDate, {
@@ -102,6 +114,8 @@ export function formValuesToInput(v: BillFormValues): BillInput {
         : v.thumbnailType === "photo"
           ? { type: "photo", keyword: v.photoKeyword, fallback: v.photoFallback }
           : null,
+    // 同じ語が複数あるときは後のものを使う
+    furiganaOverrides: [...new Map(v.furiganaOverrides.map((o) => [o.text, o])).values()],
     displayOrder: v.displayOrder,
   };
 }
@@ -129,6 +143,7 @@ export const emptyBillFormValues: BillFormValues = {
   illustration: "budget",
   photoKeyword: "",
   photoFallback: "budget",
+  furiganaOverrides: [],
   displayOrder: 0,
 };
 
@@ -157,6 +172,7 @@ export function billToFormValues(bill: BillInput | BillRecord): BillFormValues {
     illustration: t?.type === "illustration" ? t.illustration : "budget",
     photoKeyword: t?.type === "photo" ? t.keyword : "",
     photoFallback: t?.type === "photo" ? t.fallback : "budget",
+    furiganaOverrides: bill.furiganaOverrides,
     displayOrder: bill.displayOrder,
   };
 }

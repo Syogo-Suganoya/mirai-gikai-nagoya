@@ -5,9 +5,17 @@ import { redirect } from "next/navigation";
 import * as admins from "@/lib/admins/repository";
 import { endSession, requireAdmin, startSession, verifyPassword } from "@/lib/auth/admin";
 import { readHeader, rowToInput, type CsvRowResult } from "@/lib/bills/csv";
+import {
+  GENERATABLE_SECTIONS,
+  generateSection,
+  isAiConfigured,
+  type GeneratableSection,
+  type GenerateSource,
+} from "@/lib/bills/generate";
 import { toInput } from "@/lib/bills/input";
 import { BILLS_CACHE_TAG } from "@/lib/bills/queries";
 import * as repo from "@/lib/bills/repository";
+import { deleteThumbnail, detectImageType, saveThumbnail, THUMBNAIL_MAX_BYTES } from "@/lib/bills/thumbnails";
 import { billFormSchema, formValuesToInput, type BillFormValues } from "@/lib/bills/schema";
 import type { PublishStatus } from "@/lib/bills/types";
 import { parseCsv } from "@/lib/csv";
@@ -113,6 +121,58 @@ export async function deleteBillAction(id: string): Promise<ActionResult> {
     await repo.deleteBill(id);
     refreshPublicSite();
     return { ok: true, data: undefined };
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+// ---- サムネイル画像 ----
+
+// 画像はブラウザで縮小してから送られてくる。中身の先頭バイトで種類を確かめてから保存する
+export async function uploadThumbnailAction(billId: string, formData: FormData): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) return { ok: false, error: "画像を選んでください" };
+    if (file.size > THUMBNAIL_MAX_BYTES) return { ok: false, error: "画像が大きすぎます(1.5MB まで)" };
+    const data = Buffer.from(await file.arrayBuffer());
+    const type = detectImageType(data);
+    if (!type) return { ok: false, error: "JPEG・PNG・WebP の画像を選んでください" };
+    if (!(await repo.findBillById(billId))) return { ok: false, error: "議案が見つかりません" };
+    await saveThumbnail(billId, type, data);
+    refreshPublicSite();
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+export async function deleteThumbnailAction(billId: string): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+    await deleteThumbnail(billId);
+    refreshPublicSite();
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+// ---- AI でセクションを生成 ----
+
+// 保存はしない。生成結果をフォームに入れるだけなので、確認・修正してから保存する
+export async function generateSectionAction<S extends GeneratableSection>(
+  section: S,
+  source: GenerateSource,
+): Promise<ActionResult<BillFormValues[S]>> {
+  try {
+    await requireAdmin();
+    if (!GENERATABLE_SECTIONS.includes(section)) return { ok: false, error: "生成できないセクションです" };
+    if (!isAiConfigured()) return { ok: false, error: "AI の APIキー(GOOGLE_GENERATIVE_AI_API_KEY)が設定されていません" };
+    if (!source.summaryEasy.trim() && !source.summaryDetailed.trim()) {
+      return { ok: false, error: "先に「かんたん解説」か「くわしい解説」を入力してください" };
+    }
+    return { ok: true, data: await generateSection(section, source) };
   } catch (e) {
     return failure(e);
   }

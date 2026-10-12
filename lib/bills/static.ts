@@ -57,6 +57,7 @@ export const staticBillRecords: BillRecord[] = staticBills.map((bill, i) => {
     affectedGroups: bill.affectedGroups,
     tags: bill.tags,
     thumbnail: bill.thumbnail ?? null,
+    furiganaOverrides: [],
     displayOrder: i,
     furigana: {
       name: bill.nameFurigana,
@@ -69,6 +70,7 @@ export const staticBillRecords: BillRecord[] = staticBills.map((bill, i) => {
     },
     publishStatus: "published",
     isReviewCompleted: true,
+    thumbnailVersion: null,
     createdAt: "2026-07-20T00:00:00+09:00",
     updatedAt: "2026-07-20T00:00:00+09:00",
   };

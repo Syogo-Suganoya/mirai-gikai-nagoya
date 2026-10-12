@@ -17,9 +17,9 @@ export default function BillCard({ bill }: { bill: BillCardData }) {
         href={`/bills/${bill.slug}`}
         className="block rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition-colors hover:border-amber-400 hover:shadow"
       >
-        {bill.thumbnail && (
+        {(bill.uploadedThumbnailUrl || bill.thumbnail) && (
           <div className="mb-3">
-            <BillThumbnailView thumbnail={bill.thumbnail} />
+            <BillThumbnailView thumbnail={bill.thumbnail} uploadedUrl={bill.uploadedThumbnailUrl} />
           </div>
         )}
         <div className="flex items-center justify-between gap-2">

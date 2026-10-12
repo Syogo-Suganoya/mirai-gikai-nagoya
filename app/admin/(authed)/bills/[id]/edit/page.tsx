@@ -2,10 +2,14 @@ import Link from "next/link";
 import { requireAdminPage } from "@/lib/auth/admin";
 import { notFound } from "next/navigation";
 import { getCouncil } from "@/data/councils";
+import { uploadedThumbnailUrl } from "@/lib/bills/card";
+import { listFuriganaWords } from "@/lib/bills/furigana";
+import { toInput } from "@/lib/bills/input";
 import { findBillById } from "@/lib/bills/repository";
 import { billToFormValues } from "@/lib/bills/schema";
 import { publishStatusLabels } from "@/lib/bills/types";
 import BillForm from "../../../bill-form";
+import ThumbnailUploader from "./thumbnail-uploader";
 
 export default async function EditBillPage({
   params,
@@ -21,6 +25,8 @@ export default async function EditBillPage({
   if (!bill) notFound();
 
   const published = bill.publishStatus === "published";
+  // ふりがなの確認用に、保存済みの内容から自動の読みを作り直す(修正を当てる前の読みを見せるため)
+  const furiganaWords = await listFuriganaWords(toInput(bill));
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -55,8 +61,13 @@ export default async function EditBillPage({
             : "下書きとして作成しました。"}
         </p>
       )}
-      <div className="mt-5">
-        <BillForm mode="edit" id={bill.id} defaultValues={billToFormValues(bill)} />
+      <div className="mt-5 space-y-5">
+        <ThumbnailUploader
+          billId={bill.id}
+          uploadedUrl={uploadedThumbnailUrl(bill)}
+          defaultThumbnail={bill.thumbnail}
+        />
+        <BillForm mode="edit" id={bill.id} defaultValues={billToFormValues(bill)} furiganaWords={furiganaWords} />
       </div>
     </div>
   );

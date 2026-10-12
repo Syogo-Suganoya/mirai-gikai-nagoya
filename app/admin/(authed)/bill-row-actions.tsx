@@ -60,8 +60,18 @@ export default function BillRowActions({
           {published ? "公開中" : "下書き"}
         </button>
         {published && (
-          <a href={`/bills/${slug}`} target="_blank" className="ml-2 text-xs text-amber-700 underline">
+          <a
+            href={`/bills/${slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="公開ページを新しいタブで開く"
+            className="ml-2 inline-flex items-center gap-0.5 text-xs text-amber-700 hover:underline"
+          >
             表示
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3 w-3" aria-hidden>
+              <path d="M9 2.5h4.5V7M13.5 2.5 7 9M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="sr-only">(新しいタブで開く)</span>
           </a>
         )}
       </td>

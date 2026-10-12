@@ -22,6 +22,7 @@ export function toInput(bill: BillRecord): BillInput {
     affectedGroups: bill.affectedGroups,
     tags: bill.tags,
     thumbnail: bill.thumbnail,
+    furiganaOverrides: bill.furiganaOverrides,
     displayOrder: bill.displayOrder,
   };
 }

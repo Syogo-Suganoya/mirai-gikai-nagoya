@@ -2,24 +2,21 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import {
   useFieldArray,
   useForm,
-  useWatch,
   type FieldErrors,
   type FieldPath,
   type UseFormRegister,
 } from "react-hook-form";
 import { councils } from "@/data/councils";
+import type { FuriganaWord } from "@/lib/bills/furigana";
+import type { GenerateSource } from "@/lib/bills/generate";
 import { billFormSchema, type BillFormValues } from "@/lib/bills/schema";
-import {
-  BILL_ILLUSTRATIONS,
-  BILL_STATUSES,
-  billStatusLabels,
-  illustrationLabels,
-} from "@/lib/bills/types";
-import { createBillAction, updateBillAction } from "../actions";
+import { BILL_STATUSES, billStatusLabels } from "@/lib/bills/types";
+import { createBillAction, generateSectionAction, updateBillAction } from "../actions";
+import FuriganaEditor from "./furigana-editor";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none";
@@ -45,11 +42,26 @@ function Field({
   );
 }
 
-function Card({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+function Card({
+  title,
+  description,
+  action,
+  children,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-5">
-      <h2 className="font-semibold">{title}</h2>
-      {description && <p className="mt-1 text-xs text-zinc-500">{description}</p>}
+      <div className="flex flex-wrap items-start gap-3">
+        <div>
+          <h2 className="font-semibold">{title}</h2>
+          {description && <p className="mt-1 text-xs text-zinc-500">{description}</p>}
+        </div>
+        {action && <div className="ml-auto">{action}</div>}
+      </div>
       <div className="mt-4 space-y-4">{children}</div>
     </section>
   );
@@ -67,6 +79,7 @@ function errorAt(errors: FieldErrors<BillFormValues>, path: string): string | un
 type SectionName = "keyPoints" | "reasons" | "debatePoints" | "affectedGroups";
 
 // 「行を追加・削除できる入力欄の繰り返し」(この法律のポイント などの4セクション)
+// 「AIで生成」を押すと、フォームに入力中の解説をもとに AI が行を作り、今の行と置きかえる(保存はしない)
 function RepeatableSection<F extends string>({
   name,
   title,
@@ -76,6 +89,7 @@ function RepeatableSection<F extends string>({
   control,
   register,
   errors,
+  getSource,
 }: {
   name: SectionName;
   title: string;
@@ -85,10 +99,40 @@ function RepeatableSection<F extends string>({
   control: ReturnType<typeof useForm<BillFormValues>>["control"];
   register: UseFormRegister<BillFormValues>;
   errors: FieldErrors<BillFormValues>;
+  getSource: () => GenerateSource;
 }) {
-  const { fields, append, remove, move } = useFieldArray({ control, name });
+  const { fields, append, remove, move, replace } = useFieldArray({ control, name });
+  const [generating, startGenerating] = useTransition();
+  const [generateError, setGenerateError] = useState<string | null>(null);
+
+  const generate = () => {
+    if (fields.length > 0 && !confirm(`今の「${title.replace(/^\S+\s/, "")}」をAIの生成結果で置きかえます。よろしいですか?`)) {
+      return;
+    }
+    startGenerating(async () => {
+      setGenerateError(null);
+      const result = await generateSectionAction(name, getSource());
+      if (!result.ok) return setGenerateError(result.error);
+      replace(result.data as never);
+    });
+  };
+
   return (
-    <Card title={title} description={description}>
+    <Card
+      title={title}
+      description={description}
+      action={
+        <button
+          type="button"
+          disabled={generating}
+          onClick={generate}
+          className="rounded-lg border border-violet-300 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+        >
+          {generating ? "生成中…" : "✨ AIで生成"}
+        </button>
+      }
+    >
+      {generateError && <p className="text-xs text-rose-600">{generateError}</p>}
       {fields.length === 0 && <p className="text-xs text-zinc-400">まだありません</p>}
       {fields.map((row, i) => (
         <div key={row.id} className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
@@ -135,10 +179,12 @@ export default function BillForm({
   mode,
   id,
   defaultValues,
+  furiganaWords = null,
 }: {
   mode: "create" | "edit";
   id?: string;
   defaultValues: BillFormValues;
+  furiganaWords?: FuriganaWord[] | null;
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -146,11 +192,24 @@ export default function BillForm({
   const {
     register,
     control,
+    getValues,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<BillFormValues>({ resolver: zodResolver(billFormSchema), defaultValues });
 
-  const thumbnailType = useWatch({ control, name: "thumbnailType" });
+  // AI 生成の材料は、保存前でも今フォームに入っている値を使う
+  const getSource = (): GenerateSource => {
+    const v = getValues();
+    return {
+      council: v.council,
+      sessionName: v.sessionName,
+      billNumber: v.billNumber,
+      name: v.name,
+      summaryEasy: v.summaryEasy,
+      summaryDetailed: v.summaryDetailed,
+      minutesText: v.minutesText,
+    };
+  };
 
   const onSubmit = handleSubmit(async (values) => {
     setServerError(null);
@@ -227,45 +286,6 @@ export default function BillForm({
         </div>
       </Card>
 
-      <Card title="サムネイル" description="写真(loremflickr)は読み込めないときに代わりのイラストを出します">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="種類">
-            <select className={inputClass} {...register("thumbnailType")}>
-              <option value="none">なし</option>
-              <option value="illustration">イラスト</option>
-              <option value="photo">キーワード連動の写真</option>
-            </select>
-          </Field>
-          {thumbnailType === "illustration" && (
-            <Field label="イラスト">
-              <select className={inputClass} {...register("illustration")}>
-                {BILL_ILLUSTRATIONS.map((k) => (
-                  <option key={k} value={k}>
-                    {illustrationLabels[k]}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          )}
-          {thumbnailType === "photo" && (
-            <>
-              <Field label="写真のキーワード" error={e("photoKeyword")}>
-                <input className={`${inputClass} font-mono`} {...register("photoKeyword")} placeholder="baby,nursery,japan" />
-              </Field>
-              <Field label="代わりのイラスト">
-                <select className={inputClass} {...register("photoFallback")}>
-                  {BILL_ILLUSTRATIONS.map((k) => (
-                    <option key={k} value={k}>
-                      {illustrationLabels[k]}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </>
-          )}
-        </div>
-      </Card>
-
       <Card
         title="解説"
         description="公開サイトのヘッダーの「もっと詳しく」スイッチで切り替わります。ふりがなは保存時に自動で付きます"
@@ -297,6 +317,7 @@ export default function BillForm({
         control={control}
         register={register}
         errors={errors}
+        getSource={getSource}
       />
       <RepeatableSection
         name="reasons"
@@ -310,6 +331,7 @@ export default function BillForm({
         control={control}
         register={register}
         errors={errors}
+        getSource={getSource}
       />
       <RepeatableSection
         name="debatePoints"
@@ -324,6 +346,7 @@ export default function BillForm({
         control={control}
         register={register}
         errors={errors}
+        getSource={getSource}
       />
       <RepeatableSection
         name="affectedGroups"
@@ -337,7 +360,10 @@ export default function BillForm({
         control={control}
         register={register}
         errors={errors}
+        getSource={getSource}
       />
+
+      <FuriganaEditor control={control} errors={errors} words={furiganaWords} />
 
       <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center gap-3 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur">
         <button

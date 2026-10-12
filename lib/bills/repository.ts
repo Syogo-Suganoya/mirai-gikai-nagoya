@@ -28,6 +28,8 @@ type BillRow = {
   affected_groups: BillRecord["affectedGroups"];
   tags: string[];
   thumbnail: BillRecord["thumbnail"];
+  furigana_overrides: BillRecord["furiganaOverrides"];
+  thumbnail_version: string | null;
   furigana: BillFurigana;
   publish_status: PublishStatus;
   is_review_completed: boolean;
@@ -52,8 +54,10 @@ function columns() {
     id, slug, council, session_name, bill_number, name, status, committee,
     submitted_date::text as submitted_date, decided_date::text as decided_date,
     source_url, minutes_text, summary_easy, summary_detailed,
-    key_points, reasons, debate_points, affected_groups, tags, thumbnail, furigana,
-    publish_status, is_review_completed, display_order, created_at, updated_at
+    key_points, reasons, debate_points, affected_groups, tags, thumbnail, furigana, furigana_overrides,
+    publish_status, is_review_completed, display_order, created_at, updated_at,
+    (select (extract(epoch from t.updated_at) * 1000)::bigint::text from bill_thumbnails t where t.bill_id = bills.id)
+      as thumbnail_version
   `;
 }
 
@@ -79,10 +83,12 @@ function fromRow(row: BillRow): BillRecord {
     affectedGroups: row.affected_groups,
     tags: row.tags,
     thumbnail: row.thumbnail,
+    furiganaOverrides: row.furigana_overrides,
     displayOrder: row.display_order,
     furigana: { ...EMPTY_FURIGANA, ...row.furigana },
     publishStatus: row.publish_status,
     isReviewCompleted: row.is_review_completed,
+    thumbnailVersion: row.thumbnail_version,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
@@ -110,6 +116,7 @@ function toRow(input: BillInput, furigana: BillFurigana) {
     affected_groups: sql.json(input.affectedGroups),
     tags: input.tags,
     thumbnail: input.thumbnail ? sql.json(input.thumbnail) : null,
+    furigana_overrides: sql.json(input.furiganaOverrides),
     display_order: input.displayOrder,
     furigana: sql.json(furigana),
   };

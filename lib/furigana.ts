@@ -1,12 +1,15 @@
 // kuromoji の形態素解析で、文章をふりがな表示用のセグメント配列に変換する共通処理。
-// generate-explanation-furigana.ts(解説文)と ingest-agendas.ts(議案一覧)から使う。
+// 管理画面の保存処理(サーバー)と、scripts/ 配下のスクリプトの両方から使う。
 
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import kuromoji, { type IpadicFeatures } from "kuromoji";
-import type { FuriganaSegment } from "../../data/bills";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// ふりがな表示用に文章を分割したもの。text を順番に連結すると元の文章と一致する。
+// reading が無いセグメント(ひらがな・カタカナ・数字・記号など)はふりがなを付けない。
+export type FuriganaSegment = {
+  text: string;
+  reading?: string;
+};
 
 const KANJI_RE = /[一-鿿々]/;
 
@@ -99,11 +102,22 @@ export function buildTokenizer(): Promise<kuromoji.Tokenizer<IpadicFeatures>> {
   return new Promise((resolve, reject) => {
     kuromoji
       .builder({
-        dicPath: path.join(__dirname, "../../node_modules/kuromoji/dict"),
+        // npm スクリプトも Next.js のサーバーもプロジェクト直下で動くため cwd 基準で辞書を探す
+        // (Vercel では next.config.ts の outputFileTracingIncludes で辞書を関数に含める)
+        dicPath: path.join(process.cwd(), "node_modules/kuromoji/dict"),
       })
       .build((err, tokenizer) => {
         if (err) reject(err);
         else resolve(tokenizer);
       });
   });
+}
+
+let tokenizerPromise: Promise<kuromoji.Tokenizer<IpadicFeatures>> | null = null;
+
+// 辞書の読み込みは重いので、プロセス内で1回だけ行う
+export async function toFurigana(text: string): Promise<FuriganaSegment[]> {
+  tokenizerPromise ??= buildTokenizer();
+  const tokenizer = await tokenizerPromise;
+  return tokensToSegments(tokenizer.tokenize(text));
 }

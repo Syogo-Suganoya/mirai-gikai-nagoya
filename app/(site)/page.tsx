@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { bills } from "@/data/bills";
 import { getAgendaItemsByCouncil } from "@/data/agendas";
+import { toBillCardData } from "@/lib/bills/card";
+import { getPublishedBillsByCouncil } from "@/lib/bills/queries";
 import { councils, type CouncilKey } from "@/data/councils";
 import ChatWidget from "@/app/components/chat-widget";
 import BillCard from "@/app/bill-card";
 
-function CouncilSection({ councilKey }: { councilKey: CouncilKey }) {
+async function CouncilSection({ councilKey }: { councilKey: CouncilKey }) {
   const council = councils.find((c) => c.key === councilKey)!;
-  const councilBills = bills.filter((b) => b.council === councilKey);
+  const councilBills = await getPublishedBillsByCouncil(councilKey);
   const agendaCount = getAgendaItemsByCouncil(councilKey).length;
 
   return (
@@ -25,7 +26,7 @@ function CouncilSection({ councilKey }: { councilKey: CouncilKey }) {
       ) : (
         <ul className="mt-3 space-y-3">
           {councilBills.map((bill) => (
-            <BillCard key={bill.id} billId={bill.id} />
+            <BillCard key={bill.slug} bill={toBillCardData(bill)} />
           ))}
         </ul>
       )}

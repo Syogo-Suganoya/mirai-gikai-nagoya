@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { agendasGeneratedAt, getAgendaSessions } from "@/data/agendas";
+import { agendasGeneratedAt, getAgendaSessions, withFeaturedSlugs } from "@/data/agendas";
 import { councils, type CouncilKey } from "@/data/councils";
+import { getPublishedBillsByCouncil } from "@/lib/bills/queries";
 import AgendaList from "./agenda-list";
 
 export function generateStaticParams() {
@@ -17,7 +18,10 @@ export default async function CouncilAgendasPage({
   const council = councils.find((c) => c.key === key);
   if (!council) notFound();
 
-  const sessions = getAgendaSessions(council.key as CouncilKey);
+  const sessions = withFeaturedSlugs(
+    getAgendaSessions(council.key as CouncilKey),
+    await getPublishedBillsByCouncil(council.key as CouncilKey),
+  );
   const total = sessions.reduce((n, s) => n + s.items.length, 0);
 
   return (

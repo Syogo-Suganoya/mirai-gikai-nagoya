@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { bills, billStatusLabels, type BillStatus, getBillById } from "@/data/bills";
 import { getCouncil } from "@/data/councils";
-import { explanationFurigana } from "@/data/explanation-furigana.generated";
+import { getPublishedBillBySlug, getPublishedBills } from "@/lib/bills/queries";
+import { statusPillClass } from "@/lib/bills/status-style";
+import { billStatusLabels } from "@/lib/bills/types";
 import ChatWidget from "@/app/components/chat-widget";
 import FuriganaText from "@/app/furigana-text";
 import BillThumbnailView from "@/app/components/bill-thumbnail";
@@ -10,15 +11,9 @@ import BillExplanation from "./bill-explanation";
 import StatusStepper from "./status-stepper";
 import BillDetailSections from "./bill-detail-sections";
 
-const statusPillClass: Record<BillStatus, string> = {
-  introduced: "bg-zinc-100 text-zinc-700",
-  in_deliberation: "bg-amber-100 text-amber-800",
-  enacted: "bg-emerald-100 text-emerald-800",
-  rejected: "bg-rose-100 text-rose-700",
-};
-
-export function generateStaticParams() {
-  return bills.map((bill) => ({ id: bill.id }));
+// ビルド時に公開中の議案を静的生成し、その後に公開された議案はアクセス時に生成する
+export async function generateStaticParams() {
+  return (await getPublishedBills()).map((bill) => ({ id: bill.slug }));
 }
 
 export default async function BillDetailPage({
@@ -27,7 +22,7 @@ export default async function BillDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const bill = getBillById(id);
+  const bill = await getPublishedBillBySlug(id);
   if (!bill) {
     notFound();
   }
@@ -42,6 +37,12 @@ export default async function BillDetailPage({
       >
         ← トップに戻る
       </Link>
+
+      {!bill.isReviewCompleted && (
+        <p className="mt-3 rounded-xl border border-amber-300 bg-amber-100 px-4 py-3 text-sm text-amber-900">
+          この解説は内容を確認している途中です。正確な情報は各議会の公式サイトを確認してください。
+        </p>
+      )}
 
       {/* ヒーローカード */}
       <div className="mt-3 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -60,7 +61,7 @@ export default async function BillDetailPage({
         </div>
 
         <h1 className="mt-2 text-2xl font-bold leading-snug">
-          <FuriganaText segments={bill.nameFurigana} />
+          <FuriganaText segments={bill.furigana.name} />
         </h1>
 
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
@@ -69,15 +70,17 @@ export default async function BillDetailPage({
           >
             {billStatusLabels[bill.status]}
           </span>
-          <span className="text-zinc-500">提出日: {bill.submittedDate}</span>
+          {bill.submittedDate && (
+            <span className="text-zinc-500">提出日: {bill.submittedDate}</span>
+          )}
           {bill.decidedDate && (
             <span className="text-zinc-500">議決日: {bill.decidedDate}</span>
           )}
         </div>
 
         <BillExplanation
-          easyFurigana={explanationFurigana[bill.id].easy}
-          detailedFurigana={explanationFurigana[bill.id].detailed}
+          easyFurigana={bill.furigana.easy}
+          detailedFurigana={bill.furigana.detailed}
         />
 
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -99,28 +102,33 @@ export default async function BillDetailPage({
       </section>
 
       <BillDetailSections
-        keyPoints={explanationFurigana[bill.id].keyPoints}
-        reasons={explanationFurigana[bill.id].reasons}
-        debatePoints={explanationFurigana[bill.id].debatePoints}
-        affectedGroups={explanationFurigana[bill.id].affectedGroups}
+        keyPoints={bill.furigana.keyPoints}
+        reasons={bill.furigana.reasons}
+        debatePoints={bill.furigana.debatePoints}
+        affectedGroups={bill.furigana.affectedGroups}
       />
 
       <section className="mt-8">
         <h2 className="font-semibold">💬 この議案について質問する</h2>
-        <ChatWidget billId={bill.id} />
+        <ChatWidget billId={bill.slug} />
       </section>
 
       <p className="mt-6 text-xs text-zinc-400">
-        出典:{" "}
-        <a
-          href={bill.sourceUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline hover:text-amber-700"
-        >
-          {council.name} 公式サイトの議案一覧
-        </a>
-        {" ・ 審議の詳しい内容は "}
+        {bill.sourceUrl && (
+          <>
+            出典:{" "}
+            <a
+              href={bill.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-amber-700"
+            >
+              {council.name} 公式サイトの議案一覧
+            </a>
+            {" ・ "}
+          </>
+        )}
+        {"審議の詳しい内容は "}
         <a
           href={council.minutesSearchUrl}
           target="_blank"

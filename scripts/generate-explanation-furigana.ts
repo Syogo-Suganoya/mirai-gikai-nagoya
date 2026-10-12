@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import { bills } from "../data/bills";
-import { buildTokenizer, tokensToSegments } from "./lib/furigana";
+import { buildTokenizer, tokensToSegments } from "../lib/furigana";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

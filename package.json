@@ -8,14 +8,25 @@
     "start": "next start",
     "lint": "eslint",
     "generate:furigana": "tsx scripts/generate-explanation-furigana.ts",
-    "ingest:agendas": "tsx scripts/ingest-agendas.ts"
+    "ingest:agendas": "tsx scripts/ingest-agendas.ts",
+    "db:seed:generate": "tsx scripts/generate-seed.ts",
+    "admin:create": "tsx --env-file-if-exists=.env.local scripts/create-admin.ts",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:migrate": "tsx --env-file-if-exists=.env.local scripts/db-migrate.ts",
+    "db:reset": "docker compose down -v && docker compose up -d --wait && npm run db:migrate -- --seed"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.18",
+    "@hookform/resolvers": "^5.9.1",
     "ai": "^7.0.31",
     "next": "16.2.10",
+    "postgres": "^3.4.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-hook-form": "^7.89.0",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

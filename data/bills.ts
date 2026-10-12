@@ -1,3 +1,4 @@
+import type { FuriganaSegment } from "@/lib/furigana";
 import type { CouncilKey } from "./councils";
 
 export type BillStatus =
@@ -6,12 +7,7 @@ export type BillStatus =
   | "enacted"
   | "rejected";
 
-// ふりがな表示用に議案名を分割したもの。text を順番に連結すると name と一致する。
-// reading が無いセグメント(ひらがな・カタカナ・数字・記号など)はふりがなを付けない。
-export type FuriganaSegment = {
-  text: string;
-  reading?: string;
-};
+export type { FuriganaSegment };
 
 // サムネイル方式: illustration=自作SVGイラスト / photo=キーワード連動の外部写真(loremflickr)
 // photo は外部サービス側の都合(ボット判定など)で読み込めないことがあるため、

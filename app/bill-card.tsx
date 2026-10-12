@@ -1,28 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { bills, billStatusLabels, type BillStatus } from "@/data/bills";
-import { explanationFurigana } from "@/data/explanation-furigana.generated";
+import { statusPillClass } from "@/lib/bills/status-style";
+import type { BillCardData } from "@/lib/bills/card";
+import { billStatusLabels } from "@/lib/bills/types";
 import FuriganaText from "@/app/furigana-text";
 import BillThumbnailView from "@/app/components/bill-thumbnail";
 import { useDetailLevel } from "@/app/detail-level-context";
 
-const statusPillClass: Record<BillStatus, string> = {
-  introduced: "bg-zinc-100 text-zinc-700",
-  in_deliberation: "bg-amber-100 text-amber-800",
-  enacted: "bg-emerald-100 text-emerald-800",
-  rejected: "bg-rose-100 text-rose-700",
-};
-
-export default function BillCard({ billId }: { billId: string }) {
-  const bill = bills.find((b) => b.id === billId);
+export default function BillCard({ bill }: { bill: BillCardData }) {
   const { detailed } = useDetailLevel();
-  if (!bill) return null;
 
   return (
     <li>
       <Link
-        href={`/bills/${bill.id}`}
+        href={`/bills/${bill.slug}`}
         className="block rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition-colors hover:border-amber-400 hover:shadow"
       >
         {bill.thumbnail && (
@@ -41,14 +33,14 @@ export default function BillCard({ billId }: { billId: string }) {
           </span>
         </div>
         <h3 className="mt-1.5 font-semibold leading-snug">
-          <FuriganaText segments={bill.nameFurigana} />
+          <FuriganaText segments={bill.furigana.name} />
         </h3>
         <p className="mt-1.5 line-clamp-2 text-sm text-zinc-600">
           <FuriganaText
             segments={
               detailed
-                ? explanationFurigana[bill.id].detailed
-                : explanationFurigana[bill.id].easy
+                ? bill.furigana.detailed
+                : bill.furigana.easy
             }
           />
         </p>

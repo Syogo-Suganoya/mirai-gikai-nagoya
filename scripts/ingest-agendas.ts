@@ -10,10 +10,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { bills } from "../data/bills";
 import type { AgendaItem } from "../data/agendas";
 import type { CouncilKey } from "../data/councils";
-import { buildTokenizer, tokensToSegments } from "./lib/furigana";
+import { buildTokenizer, tokensToSegments } from "../lib/furigana";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -31,7 +30,7 @@ const NAGOYA_INDEXES = [
 ] as const;
 
 
-type RawItem = Omit<AgendaItem, "id" | "nameFurigana" | "featuredBillId">;
+type RawItem = Omit<AgendaItem, "id" | "nameFurigana">;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -165,22 +164,12 @@ async function main() {
   const raw = [...ingestAichiSnapshots(), ...(await ingestNagoya(now))];
 
   const tokenizer = await buildTokenizer();
-  // 括弧の全角/半角や空白の違いを無視して議案名を比較する
-  const normalize = (s: string) => s.replace(/[()（）\s]/g, "");
   const items: AgendaItem[] = raw.map((item) => {
-    const featured = bills.find(
-      (b) =>
-        b.council === item.council &&
-        b.sessionName === item.sessionName &&
-        b.billNumber === item.billNumber &&
-        normalize(b.name) === normalize(item.name),
-    );
     // 例: nagoya_city-2026-08-市長提出-第138号(データを更新しても同じ議案は同じIDになる)
     return {
       id: `${item.council}-${item.sessionMonth}-${item.submitter}-${item.billNumber}`,
       ...item,
       nameFurigana: tokensToSegments(tokenizer.tokenize(item.name)),
-      ...(featured ? { featuredBillId: featured.id } : {}),
     };
   });
 

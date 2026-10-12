@@ -13,46 +13,59 @@ npm run dev                         # http://localhost:3000
 
 Gemini APIキーは https://aistudio.google.com/apikey で無料発行できる。
 
+DB(`DATABASE_URL`)を設定しなくても公開サイトは動く(議案は静的データ `data/bills.ts` から表示する)。
+管理画面(`/admin`)を使うときは、下の「管理画面」の手順でローカルの PostgreSQL を起動する。
+本番(Vercel + Neon)へのデプロイと DB の追加手順は [_memo/DEPLOY.md](./_memo/DEPLOY.md) を参照。
+
 ## プロジェクト構造
 
 ```
 mirai-gikai-nagoya/
+├── proxy.ts                        # /admin の入口チェック(ログインの Cookie がなければログイン画面へ)
+├── docker-compose.yml              # ローカル開発用の PostgreSQL
 ├── app/
-│   ├── page.tsx                    # トップページ(全体チャット + 議案カード一覧)
-│   ├── layout.tsx                  # 全体レイアウト(ヘッダー・フッター・Context Provider)
-│   ├── bill-card.tsx               # トップページの議案カード(クライアント、詳細レベル連動)
+│   ├── layout.tsx                  # 全体の外枠(フォント・Context Provider)
+│   ├── (site)/                     # 公開サイト(URL には出ないグループ)
+│   │   ├── layout.tsx              # 公開サイトのヘッダー・フッター
+│   │   ├── page.tsx                # トップページ(全体チャット + 議案カード一覧)
+│   │   ├── bills/[id]/             # 議案詳細ページ([id] は slug)
+│   │   └── councils/[council]/     # 議会ごとの議案一覧ページ
+│   ├── admin/                      # 管理画面
+│   │   ├── actions.ts              # Server Actions(保存・公開切替・複製・削除・CSV取り込み)
+│   │   ├── login/                  # ログイン画面
+│   │   └── (authed)/               # ログイン後の画面(議案管理・新規/編集・議案一覧から作成・CSV)
 │   ├── api/chat/route.ts           # Gemini呼び出しAPI Route(議案別/全体の2モード)
-│   ├── furigana-context.tsx        # ふりがな表示ON/OFFの共有状態
-│   ├── furigana-text.tsx           # ふりがなセグメント配列を<ruby>で描画するコンポーネント
-│   ├── furigana-toggle.tsx         # ヘッダーのふりがなスイッチ
-│   ├── detail-level-context.tsx    # 「もっと詳しく」ON/OFFの共有状態
-│   ├── detail-level-toggle.tsx     # ヘッダーの「もっと詳しく」スイッチ
-│   ├── components/
-│   │   ├── switch.tsx              # トグルスイッチの共通UI
-│   │   ├── chat-widget.tsx         # AIチャットUI(トップ/議案詳細で共用、billId有無で切替)
-│   │   ├── bill-thumbnail.tsx      # サムネイル表示(illustration/photo)
-│   │   └── thumbnails/*.tsx        # 自作SVGイラスト(カテゴリ別、budget/childcare/education等)
-│   └── bills/[id]/
-│       ├── page.tsx                # 議案詳細ページ本体
-│       ├── bill-explanation.tsx    # かんたん解説/くわしい解説の表示
-│       ├── bill-detail-sections.tsx # ポイント・理由・意見が分かれるところ・影響を受ける人
-│       └── status-stepper.tsx      # 提出→審議→成立のステータス表示
+│   ├── bill-card.tsx               # トップページの議案カード
+│   ├── furigana-*.tsx / detail-level-*.tsx  # ふりがな・「もっと詳しく」の切り替え
+│   └── components/                 # チャット・サムネイル・トグルスイッチなど
+├── lib/
+│   ├── bills/                      # 議案の型・DBアクセス(repository)・公開サイト用の読み込み(queries)・フォームのスキーマ・CSV
+│   ├── admins/repository.ts        # 管理者の一覧・追加・パスワード変更・削除
+│   ├── auth/admin.ts               # ログイン・セッション・管理者の判定(requireAdmin)
+│   ├── db.ts                       # DB の接続(DATABASE_URL)
+│   ├── furigana.ts                 # kuromoji によるふりがな生成
+│   └── csv.ts                      # CSV の読み書き
 ├── data/
-│   ├── councils.ts                 # 議会マスタ(愛知県議会・名古屋市会、表示順もここで決まる)
-│   ├── bills.ts                    # 議案の静的データ本体(型定義もここ)
-│   └── explanation-furigana.generated.ts # 自動生成ファイル(直接編集しない)
-└── scripts/
-    └── generate-explanation-furigana.ts  # ふりがなデータの生成スクリプト
+│   ├── councils.ts                 # 議会マスタ(表示順もここで決まる)
+│   ├── bills.ts                    # 注目議案の静的データ(DB 未設定時の表示と、DB の初期データの元)
+│   ├── agendas.json / agendas.ts   # 議案一覧(直近1年)
+│   └── raw/aichi/*.tsv             # 愛知県議会の議案表のスナップショット
+├── db/
+│   ├── migrations/                 # テーブル定義(npm run db:migrate で番号順に流す)
+│   └── seed.sql                    # 初期データ(自動生成。手で編集しない)
+└── scripts/                        # 議案一覧の取得・ふりがな生成・初期データ生成・マイグレーション・管理者作成
 ```
 
 ## データについて
 
-データはDBを持たず、2種類の静的ファイルで管理している。
-
-| データ | ファイル | 件数 | 作り方 |
+| データ | 置き場所 | 件数 | 作り方 |
 |---|---|---|---|
 | 議案一覧(直近1年) | `data/agendas.json`(`data/agendas.ts` で型付きで読み込む) | 約450件 | `npm run ingest:agendas` で生成 |
-| 注目議案の解説 | `data/bills.ts` | 10件 | 手書き |
+| 注目議案の解説 | DB(PostgreSQL)の `bills` テーブル | 10件〜 | 管理画面で作成・編集 |
+
+注目議案は DB に置き、公開サイトは「公開中」の議案だけを読む(`lib/bills/queries.ts`)。
+DB は本番が Neon、ローカルが Docker の PostgreSQL で、どちらも `DATABASE_URL` で指定する。
+`DATABASE_URL` が未設定のときは、代わりに静的データ `data/bills.ts` を表示する。
 
 ### 議案一覧を更新する(`npm run ingest:agendas`)
 
@@ -84,29 +97,85 @@ mirai-gikai-nagoya/
 
 ### 議案を追加・編集する
 
-1. `data/bills.ts` の `Bill` 型に沿ってオブジェクトを追加(`nameFurigana` は漢字部分ごとに
-   読みを手動で分割する。ハイフンなしの単語はそのまま、送り仮名や助詞は `reading` を省略する)
-2. `tags` ・`thumbnail` (後述)を設定する
-3. `npm run generate:furigana` を実行し、`summaryEasy` 等の解説文のふりがなを再生成する
-4. `npx tsc --noEmit && npm run build` で確認する
+管理画面(`/admin`)で行う。詳しくは下の「管理画面」を参照。
+
+## 管理画面
+
+`/admin` で、注目議案の作成・編集・公開の切り替えを行う。ログインは簡易方式で、`admins` テーブルの
+メールアドレスとパスワードで入る。
+
+- パスワードは PostgreSQL の `pgcrypto`(`crypt()`/bcrypt)でハッシュ化して保存し、照合も DB で行う。
+  そのため Neon の SQL エディタから `insert` 1行で管理者を追加できる(_memo/DEPLOY.md の手順5)。
+- ログインすると、ランダムなトークンを `admin_session` Cookie(httpOnly)に入れ、DB の `admin_sessions`
+  にはその SHA-256 だけを保存する。ログアウト・パスワード変更・管理者の削除で、そのセッションは即座に無効になる。
+- 入口の `proxy.ts` は Cookie の有無だけを見る。本当に有効なセッションかは、管理画面のレイアウトと
+  各 Server Action の `requireAdmin()` で DB と照合して確かめる。
+
+| 画面 | URL | できること |
+|---|---|---|
+| 議案管理 | `/admin` | 一覧・議会で絞り込み・並べ替え・公開/下書きの切り替え・レビュー完了・複製・削除 |
+| 新規作成 | `/admin/bills/new` | 基本情報・サムネイル・解説・4つのセクションを入力して下書きを作る |
+| 編集 | `/admin/bills/[id]/edit` | 同じフォームで編集。保存すると公開サイトにすぐ反映される |
+| 議案一覧から作成 | `/admin/agendas` | 取得済みの議案一覧から選び、議案名・番号・委員会・議決結果を入力済みの状態で新規作成 |
+| CSVインポート | `/admin/import` | CSV でまとめて登録・更新(確認画面でエラーの行を確かめてから取り込む) |
+| 管理者 | `/admin/admins` | 管理者の一覧・追加・パスワード変更・削除(自分自身と最後の1人は削除できない) |
+
+- 新しく作った議案・複製した議案・CSV で作った議案は**下書き**になり、公開サイトには出ない。
+- レビュー未完了の議案は、公開サイトで「内容を確認している途中です」と表示される。
+- 保存すると、ふりがなをサーバーで自動生成して DB に入れる(`npm run generate:furigana` は不要)。
+- 保存・公開切り替えのたびに公開サイトのキャッシュ(タグ `bills`)を消すので、すぐ反映される。
+
+### ローカルで使う
+
+Docker が必要。`.env.local` の `DATABASE_URL` を `postgres://postgres:postgres@127.0.0.1:5439/mirai_gikai` にしておく。
+
+```bash
+npm run db:up                              # PostgreSQL を起動(docker-compose.yml)
+npm run db:migrate -- --seed               # テーブルを作り、初期データ(10件)を入れる
+npm run admin:create -- you@example.com    # 管理者を作る(パスワードは実行中に入力)
+npm run dev                                # http://localhost:3000/admin
+```
+
+- DB を初期状態に戻す: `npm run db:reset`(DB を作り直し、マイグレーションと初期データを流し直す)
+- 初期データを作り直す: `npm run db:seed:generate`(`data/bills.ts` から `db/seed.sql` を作る)
+- DB の中身を見る: `docker compose exec db psql -U postgres -d mirai_gikai`
+- テーブルを変えるときは `db/migrations/` に次の番号の SQL を追加して `npm run db:migrate`
+
+本番(Vercel + Neon)の設定は [_memo/DEPLOY.md](./_memo/DEPLOY.md) を参照。
+
+### CSV の形式
+
+1行目に列名(`slug`・`council`・`session_name`・`bill_number`・`name`・`status`・`committee`・
+`submitted_date`・`decided_date`・`source_url`・`summary_easy`・`summary_detailed`・`minutes_text`・
+`tags`)を書く。列の順番は自由で、必須は `slug` だけ。ひな形は管理画面からダウンロードできる。
+
+- 新しい slug の行は下書きとして作成する(議会・会期・議案番号・議案名が必要)
+- 既存の slug の行は、値が入っているセルだけを上書きする(空欄は変更しない)
+- 「この法律のポイント」などのセクションは CSV では扱わない(取り込み後に編集画面で入力する)
+- `council` は `aichi_pref`/`nagoya_city` か「愛知県議会」「名古屋市会」、`status` は
+  `enacted` などの値か「可決」「修正可決」などの表示名で書ける
 
 ## ふりがな機能
 
-議案名(`nameFurigana`)は手動でセグメント分割しているが、解説文以降の長い文章
-(`summaryEasy` / `summaryDetailed` / `keyPoints` / `reasons` / `debatePoints` /
-`affectedGroups`)は `kuromoji` による形態素解析で自動生成している
-(`scripts/generate-explanation-furigana.ts` → `data/explanation-furigana.generated.ts`)。
+ふりがなは `kuromoji` による形態素解析で自動生成している(`lib/furigana.ts`)。
+
+- 管理画面で保存した議案: 保存時にサーバーで議案名・解説文・各セクションのふりがなを作り、
+  DB の `furigana` 列に入れる。
+- 静的データ(`data/bills.ts`): 議案名は手動で分割、解説文以降は `npm run generate:furigana` で
+  `data/explanation-furigana.generated.ts` を作る。
+- 議案一覧: `npm run ingest:agendas` の中で作る。
 
 - 送り仮名(例:「育てよう」)は漢字部分だけにルビを振るよう、トークンを漢字/非漢字の連続部分に
   分割してから読みを割り当てている。
 - kuromoji(IPADIC)は文脈によって誤読することがある(例:「令和」の「令」が単独トークン化
   されると「りょう」になる)。既知の誤読は `FORCED_READINGS` に追記して補正すること。
 - **`data/explanation-furigana.generated.ts` は自動生成ファイルなので直接編集しない。**
-  `bills.ts` の該当テキストを直接編集し、`npm run generate:furigana` を再実行する。
+- Vercel では、管理画面の関数にだけ kuromoji の辞書(約17MB)を含めている(`next.config.ts` の
+  `outputFileTracingIncludes`)。
 
 ## サムネイルについて
 
-`data/bills.ts` の `thumbnail` フィールドで議案ごとに指定する。2方式ある。
+管理画面の「サムネイル」で議案ごとに指定する(DB の `thumbnail` 列)。2方式ある。
 
 ```ts
 { type: "illustration"; illustration: "budget" | "childcare" | "education" | "community" | "organization" }

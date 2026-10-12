@@ -19,14 +19,16 @@ export type AgendaItem = {
   decidedDate?: string;
   result: string; // 空文字は未議決(審議中)
   sourceUrl: string;
-  featuredBillId?: string; // 解説を書いている注目議案(data/bills.ts)の id
 };
+
+// 一覧の1行。解説ページがある議案には、その slug を付けて渡す
+export type AgendaRow = AgendaItem & { featuredSlug?: string };
 
 export type AgendaSession = {
   sessionName: string;
   sessionMonth: string;
   sourceUrls: string[];
-  items: AgendaItem[];
+  items: AgendaRow[];
 };
 
 export const agendasGeneratedAt: string = agendasJson.generatedAt;
@@ -51,4 +53,38 @@ export function getAgendaSessions(council: CouncilKey): AgendaSession[] {
     map.set(item.sessionName, session);
   }
   return [...map.values()].sort((a, b) => b.sessionMonth.localeCompare(a.sessionMonth));
+}
+
+type FeaturedBillKey = {
+  slug: string;
+  council: CouncilKey;
+  sessionName: string;
+  billNumber: string;
+  name: string;
+};
+
+// 括弧の全角/半角や空白の違いを無視して議案名を比べる
+const normalizeName = (s: string) => s.replace(/[()（）\s]/g, "");
+
+export function matchesAgendaItem(bill: Omit<FeaturedBillKey, "slug">, item: AgendaItem): boolean {
+  return (
+    bill.council === item.council &&
+    bill.sessionName === item.sessionName &&
+    bill.billNumber === item.billNumber &&
+    normalizeName(bill.name) === normalizeName(item.name)
+  );
+}
+
+// 解説ページがある議案(公開中の注目議案)に featuredSlug を付ける
+export function withFeaturedSlugs(
+  sessions: AgendaSession[],
+  bills: FeaturedBillKey[],
+): AgendaSession[] {
+  return sessions.map((session) => ({
+    ...session,
+    items: session.items.map((item) => {
+      const bill = bills.find((b) => matchesAgendaItem(b, item));
+      return bill ? { ...item, featuredSlug: bill.slug } : item;
+    }),
+  }));
 }

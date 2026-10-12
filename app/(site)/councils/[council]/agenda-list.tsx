@@ -55,8 +55,8 @@ export default function AgendaList({ sessions }: { sessions: AgendaSession[] }) 
                   {item.decidedDate && <span>議決日: {item.decidedDate}</span>}
                 </div>
                 <p className="mt-1 text-sm font-medium leading-relaxed text-zinc-900">
-                  {item.featuredBillId ? (
-                    <Link href={`/bills/${item.featuredBillId}`} className="hover:text-amber-700">
+                  {item.featuredSlug ? (
+                    <Link href={`/bills/${item.featuredSlug}`} className="hover:text-amber-700">
                       <FuriganaText segments={item.nameFurigana} />
                     </Link>
                   ) : (
@@ -65,9 +65,9 @@ export default function AgendaList({ sessions }: { sessions: AgendaSession[] }) 
                 </p>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
                   {item.committee && <span>付議・付託委員会: {item.committee}</span>}
-                  {item.featuredBillId && (
+                  {item.featuredSlug && (
                     <Link
-                      href={`/bills/${item.featuredBillId}`}
+                      href={`/bills/${item.featuredSlug}`}
                       className="rounded-full bg-amber-500 px-2 py-0.5 font-semibold text-white hover:bg-amber-600"
                     >
                       やさしい解説を読む →

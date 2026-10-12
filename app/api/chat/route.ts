@@ -1,8 +1,9 @@
 import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
 import { NextResponse } from "next/server";
-import { bills, billStatusLabels, getBillById } from "@/data/bills";
 import { getCouncil } from "@/data/councils";
+import { getPublishedBillBySlug, getPublishedBills } from "@/lib/bills/queries";
+import { billStatusLabels } from "@/lib/bills/types";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -15,8 +16,9 @@ Markdown記法は使わず、普通の文章で回答してください。
 「#」による見出し、「*」「**」による強調や箇条書き、表は使用しないこと。
 話題が変わるところで改行を入れ、2〜3文程度の短い段落に分けて読みやすくしてください。`;
 
-function buildBillSystemPrompt(billId: string) {
-  const bill = getBillById(billId);
+// billId は公開サイトの URL に使っている slug
+async function buildBillSystemPrompt(billId: string) {
+  const bill = await getPublishedBillBySlug(billId);
   if (!bill) return null;
   const council = getCouncil(bill.council);
 
@@ -48,8 +50,8 @@ ${bill.summaryDetailed}
 ${bill.minutesText}`;
 }
 
-function buildGeneralSystemPrompt() {
-  const directory = bills
+async function buildGeneralSystemPrompt() {
+  const directory = (await getPublishedBills())
     .map((b) => {
       const council = getCouncil(b.council);
       return `- [${council.name}] ${b.sessionName} ${b.billNumber} ${b.name}(${billStatusLabels[b.status]}): ${b.summaryEasy}`;
@@ -74,8 +76,8 @@ export async function POST(req: Request) {
   };
 
   const systemPrompt = billId
-    ? buildBillSystemPrompt(billId)
-    : buildGeneralSystemPrompt();
+    ? await buildBillSystemPrompt(billId)
+    : await buildGeneralSystemPrompt();
 
   if (!systemPrompt) {
     return NextResponse.json({ error: "Bill not found" }, { status: 404 });

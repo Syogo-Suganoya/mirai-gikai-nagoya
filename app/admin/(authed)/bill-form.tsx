@@ -180,11 +180,13 @@ export default function BillForm({
   id,
   defaultValues,
   furiganaWords = null,
+  thumbnailEditor,
 }: {
   mode: "create" | "edit";
   id?: string;
   defaultValues: BillFormValues;
   furiganaWords?: FuriganaWord[] | null;
+  thumbnailEditor?: ReactNode; // 編集画面だけ、解説の次にサムネイル画像の欄を出す
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -304,6 +306,8 @@ export default function BillForm({
           <textarea rows={5} className={inputClass} {...register("minutesText")} />
         </Field>
       </Card>
+
+      {thumbnailEditor}
 
       <RepeatableSection
         name="keyPoints"

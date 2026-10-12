@@ -61,13 +61,20 @@ export default async function EditBillPage({
             : "下書きとして作成しました。"}
         </p>
       )}
-      <div className="mt-5 space-y-5">
-        <ThumbnailUploader
-          billId={bill.id}
-          uploadedUrl={uploadedThumbnailUrl(bill)}
-          defaultThumbnail={bill.thumbnail}
+      <div className="mt-5">
+        <BillForm
+          mode="edit"
+          id={bill.id}
+          defaultValues={billToFormValues(bill)}
+          furiganaWords={furiganaWords}
+          thumbnailEditor={
+            <ThumbnailUploader
+              billId={bill.id}
+              uploadedUrl={uploadedThumbnailUrl(bill)}
+              defaultThumbnail={bill.thumbnail}
+            />
+          }
         />
-        <BillForm mode="edit" id={bill.id} defaultValues={billToFormValues(bill)} furiganaWords={furiganaWords} />
       </div>
     </div>
   );

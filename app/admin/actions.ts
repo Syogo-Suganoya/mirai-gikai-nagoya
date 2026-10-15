@@ -3,7 +3,14 @@
 import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import * as admins from "@/lib/admins/repository";
-import { endSession, requireAdmin, startSession, verifyPassword } from "@/lib/auth/admin";
+import {
+  currentSessionTokenHash,
+  endSession,
+  getCurrentAdmin,
+  requireAdmin,
+  startSession,
+  verifyPassword,
+} from "@/lib/auth/admin";
 import { readHeader, rowToInput, type CsvRowResult } from "@/lib/bills/csv";
 import {
   GENERATABLE_SECTIONS,
@@ -53,6 +60,26 @@ export async function signIn(
     return { error: "メールアドレスまたはパスワードが違います", email };
   }
   await startSession(admin.id);
+  // 自動発行されたパスワードのままなら、先にパスワードを変えてもらう
+  redirect(admin.mustChangePassword ? "/admin/change-password" : "/admin");
+}
+
+// 初回ログイン時のパスワード変更。このときは requireAdmin ではなくログインしているかだけを確かめる
+export async function changeInitialPasswordAction(
+  _prev: { error: string } | null,
+  formData: FormData,
+): Promise<{ error: string } | null> {
+  const admin = await getCurrentAdmin();
+  const tokenHash = await currentSessionTokenHash();
+  if (!admin || !tokenHash) redirect("/admin/login");
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+  if (password !== confirm) return { error: "確認用のパスワードが一致しません" };
+  try {
+    await admins.changeInitialPassword(admin.id, password, tokenHash);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "変更に失敗しました" };
+  }
   redirect("/admin");
 }
 
@@ -288,8 +315,9 @@ export async function createAdminAction(email: string): Promise<ActionResult<{ e
 // パスワードを変えると、その管理者はログインし直しになる(自分のパスワードを変えた場合も同じ)
 export async function changeAdminPasswordAction(adminId: string, password: string): Promise<ActionResult> {
   try {
-    await requireAdmin();
-    await admins.changePassword(adminId, password);
+    const me = await requireAdmin();
+    // 他の管理者のパスワードを変えた場合は、その人の次回ログイン時に変更を求める
+    await admins.changePassword(adminId, password, me.id !== adminId);
     return { ok: true, data: undefined };
   } catch (e) {
     return failure(e);

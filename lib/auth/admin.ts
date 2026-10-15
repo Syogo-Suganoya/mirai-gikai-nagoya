@@ -16,14 +16,22 @@ const SESSION_DAYS = 7;
 export type Admin = {
   id: string;
   email: string;
+  // 自動発行・他の管理者が設定したパスワードのままで、本人の変更が必要か
+  mustChangePassword: boolean;
 };
 
-const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
+export const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
+
+// 今のリクエストのセッション(Cookie のトークン)のハッシュ
+export async function currentSessionTokenHash(): Promise<string | null> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  return token ? hashToken(token) : null;
+}
 
 // メールアドレスとパスワードが合っていれば、その管理者を返す
 export async function verifyPassword(email: string, password: string): Promise<Admin | null> {
   const [admin] = await getSql()<Admin[]>`
-    select id, email from admins
+    select id, email, must_change_password as "mustChangePassword" from admins
     where lower(email) = lower(${email}) and password_hash = crypt(${password}, password_hash)
   `;
   return admin ?? null;
@@ -58,7 +66,7 @@ export async function getCurrentAdmin(): Promise<Admin | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   const [admin] = await getSql()<Admin[]>`
-    select a.id, a.email from admin_sessions s
+    select a.id, a.email, a.must_change_password as "mustChangePassword" from admin_sessions s
     join admins a on a.id = s.admin_id
     where s.token_hash = ${hashToken(token)} and s.expires_at > now()
   `;
@@ -69,6 +77,7 @@ export async function getCurrentAdmin(): Promise<Admin | null> {
 export async function requireAdmin(): Promise<Admin> {
   const admin = await getCurrentAdmin();
   if (!admin) throw new Error("管理者としてログインしてください");
+  if (admin.mustChangePassword) throw new Error("先にパスワードを変更してください");
   return admin;
 }
 
@@ -78,5 +87,6 @@ export async function requireAdminPage(): Promise<Admin> {
   if (!isDbConfigured()) redirect("/admin/login");
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
+  if (admin.mustChangePassword) redirect("/admin/change-password");
   return admin;
 }

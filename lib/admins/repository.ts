@@ -42,7 +42,10 @@ export async function createAdmin(email: string): Promise<{ password: string }> 
   if (!/^[^@\s]+@[^@\s]+$/.test(trimmed)) throw new Error("メールアドレスの形式が正しくありません");
   const password = generatePassword();
   try {
-    await getSql()`insert into admins (email, password_hash) values (${trimmed}, crypt(${password}, gen_salt('bf')))`;
+    await getSql()`
+      insert into admins (email, password_hash, must_change_password)
+      values (${trimmed}, crypt(${password}, gen_salt('bf')), true)
+    `;
   } catch (e) {
     if ((e as PostgresError).code === "23505") throw new Error("このメールアドレスの管理者はすでにいます");
     throw e;
@@ -50,13 +53,34 @@ export async function createAdmin(email: string): Promise<{ password: string }> 
   return { password };
 }
 
-// パスワードを変えたら、その管理者のログイン中のセッションはすべて無効にする
-export async function changePassword(adminId: string, password: string): Promise<void> {
+// パスワードを変えたら、その管理者のログイン中のセッションはすべて無効にする。
+// 他の管理者が設定したパスワード(setByOther)なら、本人の次回ログイン時に変更を求める
+export async function changePassword(adminId: string, password: string, setByOther: boolean): Promise<void> {
   checkPassword(password);
   const sql = getSql();
   await sql.begin(async (tx) => {
-    await tx`update admins set password_hash = crypt(${password}, gen_salt('bf')) where id = ${adminId}`;
+    await tx`
+      update admins set password_hash = crypt(${password}, gen_salt('bf')), must_change_password = ${setByOther}
+      where id = ${adminId}
+    `;
     await tx`delete from admin_sessions where admin_id = ${adminId}`;
+  });
+}
+
+// 初回ログイン時の変更。今のセッション(keepTokenHash)はそのまま使えるようにし、他のセッションは無効にする
+export async function changeInitialPassword(adminId: string, password: string, keepTokenHash: string): Promise<void> {
+  checkPassword(password);
+  const sql = getSql();
+  const [{ same }] = await sql<{ same: boolean }[]>`
+    select password_hash = crypt(${password}, password_hash) as same from admins where id = ${adminId}
+  `;
+  if (same) throw new Error("今のパスワードとは別のパスワードにしてください");
+  await sql.begin(async (tx) => {
+    await tx`
+      update admins set password_hash = crypt(${password}, gen_salt('bf')), must_change_password = false
+      where id = ${adminId}
+    `;
+    await tx`delete from admin_sessions where admin_id = ${adminId} and token_hash <> ${keepTokenHash}`;
   });
 }
 
@@ -65,7 +89,7 @@ export async function reissuePassword(adminId: string): Promise<{ email: string;
   const [admin] = await getSql()<{ email: string }[]>`select email from admins where id = ${adminId}`;
   if (!admin) throw new Error("管理者が見つかりません");
   const password = generatePassword();
-  await changePassword(adminId, password);
+  await changePassword(adminId, password, true);
   return { email: admin.email, password };
 }
 

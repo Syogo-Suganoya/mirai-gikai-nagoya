@@ -11,7 +11,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!image) return new Response("Not found", { status: 404 });
 
   const published = image.publishStatus === "published";
-  if (!published && !(await getCurrentAdmin())) return new Response("Not found", { status: 404 });
+  if (!published) {
+    const admin = await getCurrentAdmin();
+    if (!admin || admin.mustChangePassword) return new Response("Not found", { status: 404 });
+  }
 
   const versioned = new URL(req.url).searchParams.has("v");
   return new Response(new Uint8Array(image.data), {

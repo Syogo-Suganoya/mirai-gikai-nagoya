@@ -4,7 +4,8 @@ import { toCsv } from "@/lib/csv";
 
 // CSV インポートのひな形。1行目が列名、2行目が記入例
 export async function GET() {
-  if (!(await getCurrentAdmin())) return new Response("ログインしてください", { status: 401 });
+  const admin = await getCurrentAdmin();
+  if (!admin || admin.mustChangePassword) return new Response("ログインしてください", { status: 401 });
   const header = CSV_COLUMNS.map((c) => c.key);
   const example = [
     "nagoya-2026-08-138",

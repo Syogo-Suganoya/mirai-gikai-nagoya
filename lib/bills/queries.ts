@@ -3,7 +3,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import type { CouncilKey } from "@/data/councils";
 import { isDbConfigured } from "@/lib/db";
-import { listBills } from "./repository";
+import { listBills, listDraftBillKeys } from "./repository";
 import { staticBillRecords } from "./static";
 import type { BillRecord } from "./types";
 
@@ -20,6 +20,17 @@ const getPublishedBillsFromDb = unstable_cache(
 export async function getPublishedBills(): Promise<BillRecord[]> {
   if (!isDbConfigured()) return staticBillRecords;
   return getPublishedBillsFromDb();
+}
+
+// 下書きの議案(公開サイトの議案一覧から隠す)。DB 未設定なら下書きは無い
+const getDraftBillKeysFromDb = unstable_cache(listDraftBillKeys, ["draft-bill-keys"], {
+  tags: [BILLS_CACHE_TAG],
+  revalidate: 600,
+});
+
+export async function getDraftBillKeysByCouncil(council: CouncilKey) {
+  if (!isDbConfigured()) return [];
+  return (await getDraftBillKeysFromDb()).filter((b) => b.council === council);
 }
 
 export async function getPublishedBillsByCouncil(council: CouncilKey): Promise<BillRecord[]> {

@@ -144,6 +144,16 @@ export async function listBills(options: { publishedOnly?: boolean } = {}): Prom
   return rows.map(fromRow);
 }
 
+// 下書きの議案を、議案一覧(data/agendas.json)と照らし合わせるための項目だけ返す
+export async function listDraftBillKeys(): Promise<
+  Pick<BillRecord, "council" | "sessionName" | "billNumber" | "name">[]
+> {
+  const rows = await getSql()<Pick<BillRow, "council" | "session_name" | "bill_number" | "name">[]>`
+    select council, session_name, bill_number, name from bills where publish_status = 'draft'
+  `;
+  return rows.map((r) => ({ council: r.council, sessionName: r.session_name, billNumber: r.bill_number, name: r.name }));
+}
+
 export async function findBillById(id: string): Promise<BillRecord | null> {
   const sql = getSql();
   // uuid でない文字列で検索すると DB がエラーにするので、先に弾く

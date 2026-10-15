@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { agendasGeneratedAt, getAgendaSessions, withFeaturedSlugs } from "@/data/agendas";
+import { agendasGeneratedAt, getAgendaSessions, withFeaturedSlugs, withoutDrafts } from "@/data/agendas";
 import { councils, type CouncilKey } from "@/data/councils";
-import { getPublishedBillsByCouncil } from "@/lib/bills/queries";
+import { getDraftBillKeysByCouncil, getPublishedBillsByCouncil } from "@/lib/bills/queries";
 import AgendaList from "./agenda-list";
 
 export function generateStaticParams() {
@@ -18,9 +18,11 @@ export default async function CouncilAgendasPage({
   const council = councils.find((c) => c.key === key);
   if (!council) notFound();
 
+  const councilKey = council.key as CouncilKey;
+  // 管理画面で下書きになっている議案は出さない(公開した議案と、まだ登録していない議案だけを出す)
   const sessions = withFeaturedSlugs(
-    getAgendaSessions(council.key as CouncilKey),
-    await getPublishedBillsByCouncil(council.key as CouncilKey),
+    withoutDrafts(getAgendaSessions(councilKey), await getDraftBillKeysByCouncil(councilKey)),
+    await getPublishedBillsByCouncil(councilKey),
   );
   const total = sessions.reduce((n, s) => n + s.items.length, 0);
 

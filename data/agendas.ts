@@ -75,6 +75,19 @@ export function matchesAgendaItem(bill: Omit<FeaturedBillKey, "slug">, item: Age
   );
 }
 
+// 管理画面で下書きになっている議案を一覧から除く(議案が無くなった会期も除く)
+export function withoutDrafts(
+  sessions: AgendaSession[],
+  drafts: Omit<FeaturedBillKey, "slug">[],
+): AgendaSession[] {
+  return sessions
+    .map((session) => ({
+      ...session,
+      items: session.items.filter((item) => !drafts.some((d) => matchesAgendaItem(d, item))),
+    }))
+    .filter((session) => session.items.length > 0);
+}
+
 // 解説ページがある議案(公開中の注目議案)に featuredSlug を付ける
 export function withFeaturedSlugs(
   sessions: AgendaSession[],

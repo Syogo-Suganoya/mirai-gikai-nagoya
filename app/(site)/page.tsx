@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { getAgendaItemsByCouncil } from "@/data/agendas";
 import { toBillCardData } from "@/lib/bills/card";
+import { isTitleOnly } from "@/lib/bills/content";
 import { getPublishedBillsByCouncil } from "@/lib/bills/queries";
 import { councils, type CouncilKey } from "@/data/councils";
 import ChatWidget from "@/app/components/chat-widget";
@@ -8,8 +8,9 @@ import BillCard from "@/app/bill-card";
 
 async function CouncilSection({ councilKey }: { councilKey: CouncilKey }) {
   const council = councils.find((c) => c.key === councilKey)!;
-  const councilBills = await getPublishedBillsByCouncil(councilKey);
-  const agendaCount = getAgendaItemsByCouncil(councilKey).length;
+  // 一覧ページには公開中の議案をすべて出し、トップのカードには解説のある議案だけを出す
+  const publishedBills = await getPublishedBillsByCouncil(councilKey);
+  const councilBills = publishedBills.filter((b) => !isTitleOnly(b));
 
   return (
     <section className="mt-8">
@@ -34,7 +35,7 @@ async function CouncilSection({ councilKey }: { councilKey: CouncilKey }) {
         href={`/councils/${councilKey}`}
         className="mt-3 block rounded-xl border border-amber-300 bg-white px-4 py-3 text-center text-sm font-semibold text-amber-700 hover:bg-amber-50"
       >
-        {council.name}の議案一覧をすべて見る(直近1年・{agendaCount}件) →
+        {council.name}の議案一覧をすべて見る({publishedBills.length}件) →
       </Link>
     </section>
   );

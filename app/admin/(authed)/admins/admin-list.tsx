@@ -203,8 +203,9 @@ export default function AdminList({
                     >
                       パスワード変更
                     </button>
-                    {/* 自分のパスワードは「パスワード変更」で変える(再発行すると表示を見る前にログアウトするため) */}
-                    {a.id !== myId && (
+                    {/* 本人が初期パスワードを変更するまでだけ出す。自分の行には出さない
+                        (再発行すると、表示を見る前に自分がログアウトするため) */}
+                    {a.id !== myId && a.mustChangePassword && (
                       <button
                         type="button"
                         disabled={pending}

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { agendasGeneratedAt, getAgendaSessions, withFeaturedSlugs, withoutDrafts } from "@/data/agendas";
 import { councils, type CouncilKey } from "@/data/councils";
-import { getDraftBillKeysByCouncil, getPublishedBillsByCouncil } from "@/lib/bills/queries";
+import { buildCouncilList } from "@/lib/bills/council-list";
+import { getPublishedBillsByCouncil } from "@/lib/bills/queries";
 import AgendaList from "./agenda-list";
 
 export function generateStaticParams() {
@@ -18,12 +18,8 @@ export default async function CouncilAgendasPage({
   const council = councils.find((c) => c.key === key);
   if (!council) notFound();
 
-  const councilKey = council.key as CouncilKey;
-  // 管理画面で下書きになっている議案は出さない(公開した議案と、まだ登録していない議案だけを出す)
-  const sessions = withFeaturedSlugs(
-    withoutDrafts(getAgendaSessions(councilKey), await getDraftBillKeysByCouncil(councilKey)),
-    await getPublishedBillsByCouncil(councilKey),
-  );
+  // 管理画面で「公開」にした議案だけを出す(下書き・未登録の議案は出さない)
+  const sessions = buildCouncilList(await getPublishedBillsByCouncil(council.key as CouncilKey));
   const total = sessions.reduce((n, s) => n + s.items.length, 0);
 
   return (
@@ -41,8 +37,8 @@ export default async function CouncilAgendasPage({
         </span>
         <h1 className="mt-2 text-2xl font-bold">{council.name}の議案一覧</h1>
         <p className="mt-2 text-sm leading-relaxed text-zinc-700">
-          直近1年の定例会・臨時会で審議された議案 {total}件 です。
-          「やさしい解説を読む」が付いている議案は、会議録をもとに内容をわかりやすく解説しています。
+          このサイトで紹介している{council.name}の議案 {total}件 です。
+          「やさしい解説を読む」が付いている議案は、内容をわかりやすく解説しています。
         </p>
         <p className="mt-3 text-xs leading-relaxed text-zinc-500">
           議会での質疑や討論の内容(会議録)は、{council.name}の
@@ -54,7 +50,7 @@ export default async function CouncilAgendasPage({
           >
             会議録検索
           </a>
-          で議案名を入力すると読めます。データ更新日: {agendasGeneratedAt}
+          で議案名を入力すると読めます。
         </p>
       </div>
 

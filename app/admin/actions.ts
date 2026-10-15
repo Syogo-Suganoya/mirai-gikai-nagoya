@@ -138,7 +138,6 @@ export async function duplicateBillAction(id: string): Promise<ActionResult<{ id
   try {
     await requireAdmin();
     const bill = await repo.duplicateBill(id);
-    refreshPublicSite(); // 下書きが増えると公開サイトの議案一覧から隠す議案が変わる
     return { ok: true, data: { id: bill.id } };
   } catch (e) {
     return failure(e);
@@ -176,7 +175,6 @@ export async function registerAgendaItemsAction(
     );
     const inputs = items.map((item) => formValuesToInput(billFormSchema.parse(agendaToFormValues(item))));
     const created = await repo.createBillsBulk(inputs);
-    refreshPublicSite(); // 下書きにした議案を公開サイトの議案一覧から隠す
     return { ok: true, data: { created: created.length, skipped: ids.length - created.length } };
   } catch (e) {
     return failure(e);

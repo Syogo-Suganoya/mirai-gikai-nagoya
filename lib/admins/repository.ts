@@ -9,17 +9,22 @@ export type AdminSummary = {
   email: string;
   createdAt: string;
   lastLoginAt: string | null;
+  // 初期パスワード(自動発行・他の管理者が設定)のままで、本人がまだ変更していない
+  mustChangePassword: boolean;
 };
 
 export async function listAdmins(): Promise<AdminSummary[]> {
-  const rows = await getSql()<{ id: string; email: string; created_at: Date; last_login_at: Date | null }[]>`
-    select id, email, created_at, last_login_at from admins order by created_at
+  const rows = await getSql()<
+    { id: string; email: string; created_at: Date; last_login_at: Date | null; must_change_password: boolean }[]
+  >`
+    select id, email, created_at, last_login_at, must_change_password from admins order by created_at
   `;
   return rows.map((r) => ({
     id: r.id,
     email: r.email,
     createdAt: r.created_at.toISOString(),
     lastLoginAt: r.last_login_at?.toISOString() ?? null,
+    mustChangePassword: r.must_change_password,
   }));
 }
 
@@ -85,9 +90,15 @@ export async function changeInitialPassword(adminId: string, password: string, k
 }
 
 // パスワードを自動で発行し直す(初期パスワードの再発行)。ログイン中のセッションは無効になる
+// 本人が初期パスワードを変更したあとは再発行できない(忘れた場合は他の管理者が「パスワード変更」で設定する)
 export async function reissuePassword(adminId: string): Promise<{ email: string; password: string }> {
-  const [admin] = await getSql()<{ email: string }[]>`select email from admins where id = ${adminId}`;
+  const [admin] = await getSql()<{ email: string; must_change_password: boolean }[]>`
+    select email, must_change_password from admins where id = ${adminId}
+  `;
   if (!admin) throw new Error("管理者が見つかりません");
+  if (!admin.must_change_password) {
+    throw new Error("この管理者はすでにパスワードを変更しているため、初期パスワードは再発行できません");
+  }
   const password = generatePassword();
   await changePassword(adminId, password, true);
   return { email: admin.email, password };

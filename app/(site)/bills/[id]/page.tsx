@@ -8,6 +8,7 @@ import ChatWidget from "@/app/components/chat-widget";
 import FuriganaText from "@/app/furigana-text";
 import BillThumbnailView from "@/app/components/bill-thumbnail";
 import { uploadedThumbnailUrl } from "@/lib/bills/card";
+import { isTitleOnly } from "@/lib/bills/content";
 import BillExplanation from "./bill-explanation";
 import StatusStepper from "./status-stepper";
 import BillDetailSections from "./bill-detail-sections";
@@ -79,10 +80,11 @@ export default async function BillDetailPage({
           )}
         </div>
 
-        <BillExplanation
-          easyFurigana={bill.furigana.easy}
-          detailedFurigana={bill.furigana.detailed}
-        />
+        {isTitleOnly(bill) ? (
+          <p className="mt-4 text-sm text-zinc-500">この議案のやさしい解説は、まだありません。</p>
+        ) : (
+          <BillExplanation easyFurigana={bill.furigana.easy} detailedFurigana={bill.furigana.detailed} />
+        )}
 
         <div className="mt-3 flex flex-wrap gap-1.5">
           {bill.tags.map((tag) => (

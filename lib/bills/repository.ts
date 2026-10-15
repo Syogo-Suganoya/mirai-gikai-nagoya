@@ -61,7 +61,11 @@ function columns() {
   `;
 }
 
+// SQL で直接入れた行などでふりがなが無いときは、ふりがな無しの本文をそのまま表示する
+const plain = (text: string) => (text ? [{ text }] : []);
+
 function fromRow(row: BillRow): BillRecord {
+  const furigana = { ...EMPTY_FURIGANA, ...row.furigana };
   return {
     id: row.id,
     slug: row.slug,
@@ -85,7 +89,12 @@ function fromRow(row: BillRow): BillRecord {
     thumbnail: row.thumbnail,
     furiganaOverrides: row.furigana_overrides,
     displayOrder: row.display_order,
-    furigana: { ...EMPTY_FURIGANA, ...row.furigana },
+    furigana: {
+      ...furigana,
+      name: furigana.name.length > 0 ? furigana.name : plain(row.name),
+      easy: furigana.easy.length > 0 ? furigana.easy : plain(row.summary_easy),
+      detailed: furigana.detailed.length > 0 ? furigana.detailed : plain(row.summary_detailed),
+    },
     publishStatus: row.publish_status,
     isReviewCompleted: row.is_review_completed,
     thumbnailVersion: row.thumbnail_version,
@@ -142,16 +151,6 @@ export async function listBills(options: { publishedOnly?: boolean } = {}): Prom
     order by council, display_order, created_at
   `;
   return rows.map(fromRow);
-}
-
-// 下書きの議案を、議案一覧(data/agendas.json)と照らし合わせるための項目だけ返す
-export async function listDraftBillKeys(): Promise<
-  Pick<BillRecord, "council" | "sessionName" | "billNumber" | "name">[]
-> {
-  const rows = await getSql()<Pick<BillRow, "council" | "session_name" | "bill_number" | "name">[]>`
-    select council, session_name, bill_number, name from bills where publish_status = 'draft'
-  `;
-  return rows.map((r) => ({ council: r.council, sessionName: r.session_name, billNumber: r.bill_number, name: r.name }));
 }
 
 export async function findBillById(id: string): Promise<BillRecord | null> {

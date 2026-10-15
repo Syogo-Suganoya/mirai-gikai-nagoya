@@ -3,7 +3,8 @@ import { requireAdminPage } from "@/lib/auth/admin";
 import { councils, getCouncil } from "@/data/councils";
 import { listBills } from "@/lib/bills/repository";
 import { statusPillClass } from "@/lib/bills/status-style";
-import { billStatusLabels, BILL_STATUSES, type BillRecord } from "@/lib/bills/types";
+import { isTitleOnly } from "@/lib/bills/content";
+import { billStatusLabels, BILL_STATUSES } from "@/lib/bills/types";
 import BillRowActions from "./bill-row-actions";
 
 const SORTS = {
@@ -14,18 +15,6 @@ const SORTS = {
 } as const;
 type SortKey = keyof typeof SORTS;
 
-// 解説(かんたん・くわしい)も4つのセクションも空で、議案名などの基本情報しかない議案
-// (「議案一覧から作成」や CSV で取り込んだ直後など)
-function isTitleOnly(bill: BillRecord): boolean {
-  return (
-    !bill.summaryEasy.trim() &&
-    !bill.summaryDetailed.trim() &&
-    bill.keyPoints.length === 0 &&
-    bill.reasons.length === 0 &&
-    bill.debatePoints.length === 0 &&
-    bill.affectedGroups.length === 0
-  );
-}
 
 export default async function AdminBillsPage({
   searchParams,

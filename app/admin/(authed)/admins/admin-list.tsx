@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { AdminSummary } from "@/lib/admins/repository";
 import {
   changeAdminPasswordAction,
@@ -56,6 +56,72 @@ function IssuedPassword({ issued, onClose }: { issued: Issued; onClose: () => vo
         ※ このパスワードはここでしか表示されません。表示を消したり、画面を移動・再読み込みしたりすると、
         二度と確認できません。必ず控えてください(わからなくなった場合は「初期パスワード再発行」で発行し直せます)。
       </p>
+    </div>
+  );
+}
+
+type MenuItem = { label: string; onSelect: () => void; danger?: boolean; disabled?: boolean; title?: string };
+
+// 行ごとの操作メニュー(⋮)。外側をクリックするか Esc で閉じる
+function RowMenu({ items, label }: { items: MenuItem[]; label: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative inline-block text-left">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={label}
+        className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
+      >
+        <svg viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4" aria-hidden>
+          <circle cx="8" cy="3" r="1.5" />
+          <circle cx="8" cy="8" r="1.5" />
+          <circle cx="8" cy="13" r="1.5" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-lg border border-zinc-200 bg-white py-1 text-sm shadow-lg"
+        >
+          {items.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              role="menuitem"
+              disabled={item.disabled}
+              title={item.title}
+              onClick={() => {
+                setOpen(false);
+                item.onSelect();
+              }}
+              className={`block w-full px-3 py-2 text-left hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent ${
+                item.danger ? "text-rose-600" : "text-zinc-700"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -136,20 +202,23 @@ export default function AdminList({
 
       {issued && <IssuedPassword key={issued.password} issued={issued} onClose={() => setIssued(null)} />}
 
-      <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full text-sm">
+      {/* 操作メニューが表の外にはみ出して表示されるよう、overflow は付けない */}
+      <div className="rounded-xl border border-zinc-200 bg-white">
+        <table className="w-full table-fixed text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs text-zinc-500">
             <tr>
-              <th className="px-3 py-2">メールアドレス</th>
-              <th className="px-3 py-2">作成日時</th>
-              <th className="px-3 py-2">最終ログイン</th>
-              <th className="px-3 py-2" />
+              <th className="rounded-tl-xl px-3 py-2">メールアドレス</th>
+              <th className="w-28 px-3 py-2 sm:w-44">作成日時</th>
+              <th className="w-28 px-3 py-2 sm:w-44">最終ログイン</th>
+              <th className="w-12 rounded-tr-xl px-3 py-2">
+                <span className="sr-only">操作</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {admins.map((a) => (
               <tr key={a.id} className="align-top">
-                <td className="px-3 py-3">
+                <td className="break-all px-3 py-3">
                   {a.email}
                   {a.id === myId && <span className="ml-2 rounded bg-zinc-100 px-1.5 text-xs text-zinc-500">自分</span>}
                   {editingId === a.id && (
@@ -191,40 +260,31 @@ export default function AdminList({
                 </td>
                 <td className="px-3 py-3 text-xs text-zinc-500">{toDate(a.createdAt)}</td>
                 <td className="px-3 py-3 text-xs text-zinc-500">{toDate(a.lastLoginAt)}</td>
-                <td className="whitespace-nowrap px-3 py-3 text-xs">
-                  <div className="flex justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingId(editingId === a.id ? null : a.id);
-                        setNewPassword("");
-                      }}
-                      className="text-amber-700 hover:underline"
-                    >
-                      パスワード変更
-                    </button>
-                    {/* 本人が初期パスワードを変更するまでだけ出す。自分の行には出さない
-                        (再発行すると、表示を見る前に自分がログアウトするため) */}
-                    {a.id !== myId && a.mustChangePassword && (
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => reissue(a)}
-                        className="text-amber-700 hover:underline disabled:opacity-40"
-                      >
-                        初期パスワード再発行
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      disabled={pending || admins.length <= 1}
-                      onClick={() => remove(a)}
-                      title={admins.length <= 1 ? "最後の管理者は削除できません" : undefined}
-                      className="text-rose-600 hover:underline disabled:opacity-40 disabled:hover:no-underline"
-                    >
-                      アカウント削除
-                    </button>
-                  </div>
+                <td className="px-3 py-2 text-right">
+                  <RowMenu
+                    label={`${a.email} の操作`}
+                    items={[
+                      {
+                        label: "パスワード変更",
+                        onSelect: () => {
+                          setEditingId(editingId === a.id ? null : a.id);
+                          setNewPassword("");
+                        },
+                      },
+                      // 本人が初期パスワードを変更するまでだけ出す。自分の行には出さない
+                      // (再発行すると、表示を見る前に自分がログアウトするため)
+                      ...(a.id !== myId && a.mustChangePassword
+                        ? [{ label: "初期パスワード再発行", onSelect: () => reissue(a), disabled: pending }]
+                        : []),
+                      {
+                        label: "アカウント削除",
+                        danger: true,
+                        onSelect: () => remove(a),
+                        disabled: pending || admins.length <= 1,
+                        title: admins.length <= 1 ? "最後の管理者は削除できません" : undefined,
+                      },
+                    ]}
+                  />
                 </td>
               </tr>
             ))}

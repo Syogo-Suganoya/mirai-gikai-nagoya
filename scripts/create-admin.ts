@@ -6,8 +6,6 @@
 import postgres from "postgres";
 import readline from "node:readline/promises";
 
-const MIN_PASSWORD_LENGTH = 10;
-
 async function main() {
   const email = process.argv[2];
   const url = process.env.DATABASE_URL;
@@ -21,10 +19,8 @@ async function main() {
     (isLocal ? process.env.LOCAL_ADMIN_PASSWORD : undefined) ??
     (await readline
       .createInterface({ input: process.stdin, output: process.stdout })
-      .question(`パスワード(${MIN_PASSWORD_LENGTH}文字以上): `));
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    throw new Error(`パスワードは${MIN_PASSWORD_LENGTH}文字以上にしてください`);
-  }
+      .question("パスワード: "));
+  if (password.length === 0) throw new Error("パスワードを入力してください");
 
   const sql = postgres(url, { max: 1, prepare: false });
   try {

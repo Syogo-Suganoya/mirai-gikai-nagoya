@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomInt } from "node:crypto";
 import type { PostgresError } from "postgres";
 import { getSql } from "@/lib/db";
 
@@ -9,8 +10,6 @@ export type AdminSummary = {
   createdAt: string;
   lastLoginAt: string | null;
 };
-
-export const MIN_PASSWORD_LENGTH = 10;
 
 export async function listAdmins(): Promise<AdminSummary[]> {
   const rows = await getSql()<{ id: string; email: string; created_at: Date; last_login_at: Date | null }[]>`
@@ -24,23 +23,31 @@ export async function listAdmins(): Promise<AdminSummary[]> {
   }));
 }
 
+// 長さや文字の種類の制約は設けない(空欄だけは不可)
 function checkPassword(password: string) {
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    throw new Error(`パスワードは${MIN_PASSWORD_LENGTH}文字以上にしてください`);
-  }
+  if (password.length === 0) throw new Error("パスワードを入力してください");
 }
 
+// 初期パスワード用。見間違えやすい文字(0/O, 1/l/I など)を除いた英数字16文字
+const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+function generatePassword(length = 16): string {
+  return Array.from({ length }, () => PASSWORD_CHARS[randomInt(PASSWORD_CHARS.length)]).join("");
+}
+
+// 初期パスワードは自動で発行し、呼び出し元に一度だけ返す(DB には bcrypt のハッシュしか残らない)。
 // パスワードは DB 側で bcrypt にする(Neon の SQL エディタで追加する場合と同じ方式)
-export async function createAdmin(email: string, password: string): Promise<void> {
+export async function createAdmin(email: string): Promise<{ password: string }> {
   const trimmed = email.trim();
   if (!/^[^@\s]+@[^@\s]+$/.test(trimmed)) throw new Error("メールアドレスの形式が正しくありません");
-  checkPassword(password);
+  const password = generatePassword();
   try {
     await getSql()`insert into admins (email, password_hash) values (${trimmed}, crypt(${password}, gen_salt('bf')))`;
   } catch (e) {
     if ((e as PostgresError).code === "23505") throw new Error("このメールアドレスの管理者はすでにいます");
     throw e;
   }
+  return { password };
 }
 
 // パスワードを変えたら、その管理者のログイン中のセッションはすべて無効にする
@@ -51,6 +58,15 @@ export async function changePassword(adminId: string, password: string): Promise
     await tx`update admins set password_hash = crypt(${password}, gen_salt('bf')) where id = ${adminId}`;
     await tx`delete from admin_sessions where admin_id = ${adminId}`;
   });
+}
+
+// パスワードを自動で発行し直す(初期パスワードの再発行)。ログイン中のセッションは無効になる
+export async function reissuePassword(adminId: string): Promise<{ email: string; password: string }> {
+  const [admin] = await getSql()<{ email: string }[]>`select email from admins where id = ${adminId}`;
+  if (!admin) throw new Error("管理者が見つかりません");
+  const password = generatePassword();
+  await changePassword(adminId, password);
+  return { email: admin.email, password };
 }
 
 // 最後の1人は消せない(管理画面に誰も入れなくなるため)。セッションは ON DELETE CASCADE で消える

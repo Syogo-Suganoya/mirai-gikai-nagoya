@@ -272,11 +272,12 @@ export async function importCsvAction(
 
 // ---- 管理者 ----
 
-export async function createAdminAction(email: string, password: string): Promise<ActionResult> {
+// 初期パスワードは自動で発行して返す。画面に一度だけ表示し、再表示はできない
+export async function createAdminAction(email: string): Promise<ActionResult<{ email: string; password: string }>> {
   try {
     await requireAdmin();
-    await admins.createAdmin(email, password);
-    return { ok: true, data: undefined };
+    const { password } = await admins.createAdmin(email);
+    return { ok: true, data: { email: email.trim(), password } };
   } catch (e) {
     return failure(e);
   }
@@ -293,10 +294,23 @@ export async function changeAdminPasswordAction(adminId: string, password: strin
   }
 }
 
-export async function deleteAdminAction(adminId: string): Promise<ActionResult> {
+// 自分のパスワードは「パスワード変更」で変える(再発行すると自分のセッションが消え、表示を見る前にログアウトするため)
+export async function reissueAdminPasswordAction(
+  adminId: string,
+): Promise<ActionResult<{ email: string; password: string }>> {
   try {
     const me = await requireAdmin();
-    if (me.id === adminId) return { ok: false, error: "自分自身は削除できません" };
+    if (me.id === adminId) return { ok: false, error: "自分のパスワードは「パスワード変更」で変えてください" };
+    return { ok: true, data: await admins.reissuePassword(adminId) };
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+// 自分自身も削除できる(削除するとログアウトする)。最後の1人は削除できない
+export async function deleteAdminAction(adminId: string): Promise<ActionResult> {
+  try {
+    await requireAdmin();
     await admins.deleteAdmin(adminId);
     return { ok: true, data: undefined };
   } catch (e) {
